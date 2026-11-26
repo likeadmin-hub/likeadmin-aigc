@@ -10,6 +10,8 @@ use app\common\service\case_gallery\CaseGenerationService;
 use Exception;
 use app\common\service\app\aigc_product_video\ProductVideoBuiltins;
 use app\common\service\app\aigc_product_video\ProductVideoService;
+use app\common\service\app\aigc_product_video\ProductVideoPolicy;
+use app\common\service\app\aigc_product_video\ProductVideoTemplates;
 
 class AppCaseService
 {
@@ -72,8 +74,19 @@ class AppCaseService
     {
         $studio=[];
         if($public)foreach(StudioBuiltinCatalog::APPS as $code){
+            if (!in_array($code,$codes,true) || !AppAccessService::tenantCanUse($tenantId,$code,false)) continue;
             $service=$code==='aigc_store_visit'?\app\common\service\app\aigc_store_visit\StoreVisitService::class:\app\common\service\app\aigc_story_commerce\StoryCommerceService::class;
-            if(in_array($code,$codes,true)&&AppAccessService::tenantCanUse($tenantId,$code,false)&&(int)$service::settings($tenantId)['status']===1){StudioBuiltinTemplates::sync($code);$studio[$code]=StudioBuiltinTemplates::ids($code);}
+            $settings = $code === 'aigc_video_replication'
+                ? \app\common\service\app\aigc_product_video\ProductVideoPolicy::forReplication(fn() => ProductVideoService::settings($tenantId))
+                : $service::settings($tenantId);
+            if ((int)$settings['status'] === 1){StudioBuiltinTemplates::sync($code);$studio[$code]=StudioBuiltinTemplates::ids($code);}
+        }
+        if ($public && in_array(ProductVideoPolicy::SALE, $codes, true) && AppAccessService::tenantCanUse($tenantId, ProductVideoPolicy::SALE, false)) {
+            $studio[ProductVideoPolicy::SALE] = ProductVideoPolicy::forSale(static function () use ($tenantId) {
+                if (!(int)ProductVideoService::settings($tenantId)['status']) return [];
+                ProductVideoBuiltins::sync();
+                return ProductVideoBuiltins::ids();
+            });
         }
         $ids = [];
         if ($public && in_array('aigc_product_video', $codes, true)
@@ -94,6 +107,9 @@ class AppCaseService
     private static function assertWritable(AppCase $row): void
     {
         if(in_array($row['app_code'],StudioBuiltinCatalog::APPS,true)&&!StudioBuiltinTemplates::writing()&&StudioBuiltinTemplates::info((string)$row['app_code'],(int)$row['id']))throw new Exception('请在对应应用的灵感模板管理中维护平台内置模板');
+        if ($row['app_code'] === ProductVideoPolicy::SALE && ProductVideoPolicy::forSale(fn() => !ProductVideoBuiltins::writing() && ProductVideoBuiltins::info((int)$row['id']))) {
+            throw new Exception('请在带货视频灵感模板管理中维护平台内置模板');
+        }
         if ($row['app_code'] === 'aigc_product_video' && !ProductVideoBuiltins::writing() && ProductVideoBuiltins::info((int)$row['id'])) {
             throw new Exception('请在商品视频灵感模板管理中维护平台内置模板');
         }
@@ -299,6 +315,8 @@ class AppCaseService
         $row['config_fields'] = self::configFields($config, (string)($row['media_type'] ?? self::MEDIA_IMAGE));
         if (($row['app_code'] ?? '') === 'aigc_store_visit' && isset($config['generation_request']['advanced_params']['store_visit'])) return \app\common\service\app\aigc_store_visit\StoreVisitTemplates::galleryRow($row);
         if (($row['app_code'] ?? '') === 'aigc_story_commerce' && isset($config['generation_request']['advanced_params']['story_commerce'])) return \app\common\service\app\aigc_story_commerce\StoryCommerceTemplates::galleryRow($row);
+        if (($row['app_code'] ?? '') === 'aigc_video_replication' && isset($config['generation_request']['advanced_params']['video_replication'])) return \app\common\service\app\aigc_product_video\VideoReplicationTemplates::galleryRow($row);
+        if (($row['app_code'] ?? '') === ProductVideoPolicy::SALE && isset($config['generation_request']['advanced_params']['product_video'])) return ProductVideoPolicy::forSale(fn() => ProductVideoTemplates::galleryRow($row));
         if (($row['app_code'] ?? '') === 'aigc_product_video' && isset($config['generation_request']['advanced_params']['product_video'])) return \app\common\service\app\aigc_product_video\ProductVideoTemplates::galleryRow($row);
         return $row;
     }

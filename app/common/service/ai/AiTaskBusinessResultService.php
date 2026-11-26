@@ -21,7 +21,7 @@ class AiTaskBusinessResultService
         'aigc_music_cover_task'=>'music_cover','aigc_digital_human_task'=>'digital_human','aigc_watermark_removal_task'=>'watermark',
         'aigc_video_enhance_task' => 'managed_video',
         'aigc_micro_video_segment'=>'micro_segment','aigc_micro_video_frame'=>'micro_frame',
-        'aigc_store_visit_job'=>'store_visit', 'aigc_story_commerce_job'=>'story_commerce', 'aigc_product_video_job'=>'product_video', 'aigc_motion_sync_task'=>'motion_sync',
+        'aigc_store_visit_job'=>'store_visit', 'aigc_story_commerce_job'=>'story_commerce', 'aigc_sale_video_job'=>'sale_video', 'aigc_video_replication_job'=>'video_replication', 'aigc_product_video_job'=>'product_video', 'aigc_motion_sync_task'=>'motion_sync',
         'aigc_animate_replace_task'=>'animate_replace',
     ];
 
@@ -63,6 +63,8 @@ class AiTaskBusinessResultService
         $adapter=self::ADAPTERS[(string)$context['business_table']];
         if ($adapter==='store_visit') return \app\common\service\app\aigc_store_visit\StoreVisitWorker::wake($context['consumption'],(int)$context['business_id']);
         if ($adapter==='story_commerce') return \app\common\service\app\aigc_story_commerce\StoryCommerceWorker::wake($context['consumption'],(int)$context['business_id']);
+        if ($adapter==='sale_video') return self::wakeSale($context['consumption'], (int)$context['business_id']);
+        if ($adapter==='video_replication') return self::wakeReplication($context['consumption'], (int)$context['business_id']);
         if ($adapter==='product_video') return \app\common\service\app\aigc_product_video\ProductVideoWorker::wake($context['consumption'],(int)$context['business_id']);
         if (in_array($adapter,['micro_segment','micro_frame'],true)) return self::acceptRetiredVideoReceipt($context['consumption'],(int)$context['business_id'],$adapter==='micro_frame'?'frame':'segment');
         self::syncByConsumptionId($consumptionId);
@@ -102,11 +104,27 @@ class AiTaskBusinessResultService
             'animate_replace' => \app\common\service\app\aigc_animate_replace\AnimateReplaceTasks::sync($consumption, $businessId),
             'store_visit' => \app\common\service\app\aigc_store_visit\StoreVisitWorker::wake($consumption,$businessId),
             'story_commerce' => \app\common\service\app\aigc_story_commerce\StoryCommerceWorker::wake($consumption,$businessId),
+            'sale_video' => self::wakeSale($consumption, $businessId),
+            'video_replication' => self::wakeReplication($consumption, $businessId),
             'product_video' => \app\common\service\app\aigc_product_video\ProductVideoWorker::wake($consumption,$businessId),
             'micro_segment' => self::acceptRetiredVideoReceipt($consumption,$businessId,'segment'),
             'micro_frame' => self::acceptRetiredVideoReceipt($consumption,$businessId,'frame'),
             default => self::assertOptionalBusinessAdapter($consumption, $businessTable),
         };
+    }
+
+    private static function wakeSale(array $consumption, int $id): bool
+    {
+        return \app\common\service\app\aigc_product_video\ProductVideoPolicy::forSale(
+            fn() => \app\common\service\app\aigc_product_video\ProductVideoWorker::wake($consumption, $id)
+        );
+    }
+
+    private static function wakeReplication(array $consumption, int $id): bool
+    {
+        return \app\common\service\app\aigc_product_video\ProductVideoPolicy::forReplication(
+            fn() => \app\common\service\app\aigc_product_video\ProductVideoWorker::wake($consumption, $id)
+        );
     }
 
     private static function syncImageTask(array $consumption,int $businessId): void

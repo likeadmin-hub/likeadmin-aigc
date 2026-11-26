@@ -24,10 +24,10 @@ final class ProductVideoAdminMedia
         if(!$images||count($images)>15)throw new InvalidArgumentException('请添加 1～15 张商品图片');
         $out=[];foreach($images as $i=>$image){$asset=self::asset($scope,(array)$image,10);$asset['mention_name']=$asset['mention_name']?:'图片'.($i+1);$out[]=$asset;}return $out;
     }
-    public static function verifyStored(int $scope,array $asset,int $type): array
+    public static function verifyStored(int $scope,array $asset,int $type,string $missingMessage='模板的后台素材已移除，请重新上传'): array
     {
         $file=self::query($scope,$type)->where('uri',(string)($asset['uri']??''))->order('id','desc')->find();
-        if(!$file)throw new InvalidArgumentException('模板的后台素材已移除，请重新上传');
+        if(!$file)throw new InvalidArgumentException($missingMessage);
         foreach(['storage_scope','storage_engine','storage_domain'] as $key)if((string)($asset[$key]??'')!==(string)$file[$key])throw new InvalidArgumentException('模板素材存储归属已变化，请重新设置模板');
         return $asset;
     }

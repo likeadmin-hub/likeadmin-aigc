@@ -10,6 +10,29 @@ require_once __DIR__.'/MarketMixedMaterialSelectorsTest.php';
 
 class MarketH3MixedMaterialsTest extends TestCase
 {
+    public function testReferenceOnlyChannelsAdvertiseOnlyTheirContentRoles(): void
+    {
+        $metadata = [
+            'developer_doc_content' => '不支持首帧、尾帧和参考视频',
+            'params_schema' => ['properties' => ['content' => ['type' => 'array', 'items' => [
+                'type' => 'object', 'properties' => [
+                    'type' => ['type' => 'string', 'enum' => ['text', 'image_url', 'audio_url']],
+                    'role' => ['type' => 'string', 'enum' => ['reference_image', 'reference_audio']],
+                ],
+            ]]]],
+        ];
+        $generationModes = new \ReflectionMethod(Videos::class, 'generationModes');
+        $assetTypes = new \ReflectionMethod(Videos::class, 'supportedAssetTypes');
+        $modes = ['text_to_video', 'image_reference', 'omni_reference', 'audio_reference'];
+        foreach (['minimax-h3-1080p-c1', 'minimax-h3-768-ms'] as $code) {
+            $product = ['resource_type' => 'model', 'upstream_model_code' => $code];
+            self::assertSame($modes, $generationModes->invoke(null, $product, $metadata));
+            self::assertSame(['image', 'audio'], $assetTypes->invoke(null, $product, $metadata));
+        }
+        $metadata['params_schema']['properties']['content']['items']['properties']['role']['enum'][] = 'first_frame';
+        self::assertContains('image_to_video', $generationModes->invoke(null, $product, $metadata));
+    }
+
     public static function bundle(): array
     {
         $b=MarketMixedMaterialSelectorsTest::bundle();$e=&$b['entries'][0];$e['generation_protocol']='h3_content_v1';

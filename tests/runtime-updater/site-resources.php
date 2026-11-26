@@ -17,10 +17,12 @@ if (!in_array(($argv[1]??''), ['--observe', '--canonical'], true)) {
     try {
         resourceCopy($root.'/vendor',$site.'/vendor');
         foreach (['runtime-loader.php','direct-runtime-loader.php','app/common/service/update/DirectSiteUpdateService.php','app/common/service/update/ComposerRuntimeUpdateService.php','app/common/service/OemBrandService.php','app/common/service/app/aigc_short_drama/AigcShortDramaService.php'] as $path) resourceCopy($root.'/'.$path,$site.'/'.$path);
+        resourceCopy($root.'/app/common/service/MediaBinaryService.php',$site.'/app/common/service/MediaBinaryService.php');
         resourceCopy($root.'/config',$site.'/config');file_put_contents($site.'/config/project.php',"<?php return ['version'=>'1.0.391'];");
         mkdir($site.'/oem');file_put_contents($site.'/oem/brand.json',json_encode(['schema_version'=>1,'name'=>'Site owned brand','slug'=>'fixture-brand','logo'=>'oem-assets/v1/logo.png']));
         mkdir($site.'/runtime/bin/ffmpeg/bin',0755,true);
         file_put_contents($site.'/runtime/bin/ffmpeg/bin/ffmpeg',"#!/bin/sh\necho 'ffmpeg version site-owned-fixture'\n");chmod($site.'/runtime/bin/ffmpeg/bin/ffmpeg',0755);
+        copy($site.'/runtime/bin/ffmpeg/bin/ffmpeg',$site.'/runtime/bin/ffmpeg/bin/ffprobe');chmod($site.'/runtime/bin/ffmpeg/bin/ffprobe',0755);
         passthru(escapeshellarg(PHP_BINARY).' '.escapeshellarg(__FILE__).' --canonical '.escapeshellarg($site),$exit);
         resourceCheck($exit===0,'Canonical loader resource observer failed');
         require_once $site.'/app/common/service/update/ComposerRuntimeUpdateService.php';
@@ -50,6 +52,9 @@ app\common\service\OemBrandService::initialize($db,'la_',901);
 resourceCheck($db->query("SELECT value FROM la_tenant_config WHERE tenant_id=901 AND type='tenant' AND name='name'")->fetchColumn()==='Site owned brand','New tenant initialization lost site brand');
 $ffmpeg=new ReflectionMethod(app\common\service\app\aigc_short_drama\AigcShortDramaService::class,'resolveFfmpegBinary');$ffmpeg->setAccessible(true);
 resourceCheck($ffmpeg->invoke(null)===$site.'/runtime/bin/ffmpeg/bin/ffmpeg','FFmpeg resolver lost the site-only executable');
+foreach (['ffmpeg', 'ffprobe'] as $name) {
+    resourceCheck(app\common\service\MediaBinaryService::resolve($name)===$site.'/runtime/bin/ffmpeg/bin/'.$name,'Video replication lost site-only '.$name);
+}
 resourceCheck(hash_file('sha256',$brandPath)===$brandHash,'Protected OEM file changed');
 resourceCheck(str_starts_with((new ReflectionClass(app\common\service\OemBrandService::class))->getFileName(),$generation.'/app/'),'OEM class was not loaded from actual generation');
 resourceCheck(str_starts_with((new ReflectionClass(app\common\service\app\aigc_short_drama\AigcShortDramaService::class))->getFileName(),$generation.'/app/'),'Short drama class was not loaded from actual generation');

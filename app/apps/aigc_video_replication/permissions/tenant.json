@@ -1,0 +1,77 @@
+[
+  {
+    "api_path": "app.aigc_video_replication.config/detail",
+    "api_method": "GET",
+    "permission_key": "aigc_video_replication:config:detail"
+  },
+  {
+    "api_path": "app.aigc_video_replication.config/setup",
+    "api_method": "POST",
+    "permission_key": "aigc_video_replication:config:setup"
+  },
+  {
+    "api_path": "app.aigc_video_replication.config/models",
+    "api_method": "GET",
+    "permission_key": "aigc_video_replication:config:models"
+  },
+  {
+    "api_path": "app.aigc_video_replication.job/lists",
+    "api_method": "GET",
+    "permission_key": "aigc_video_replication:job:lists"
+  },
+  {
+    "api_path": "app.aigc_video_replication.job/detail",
+    "api_method": "GET",
+    "permission_key": "aigc_video_replication:job:detail"
+  },
+  {
+    "api_path": "app.aigc_video_replication.job/delete",
+    "api_method": "POST",
+    "permission_key": "aigc_video_replication:job:delete"
+  },
+  {
+    "api_path": "app.aigc_video_replication.case/lists",
+    "api_method": "GET",
+    "permission_key": "aigc_video_replication:case:lists"
+  },
+  {
+    "api_path": "app.aigc_video_replication.case/detail",
+    "api_method": "GET",
+    "permission_key": "aigc_video_replication:case:detail"
+  },
+  {
+    "api_path": "app.aigc_video_replication.case/save",
+    "api_method": "POST",
+    "permission_key": "aigc_video_replication:case:save"
+  },
+  {
+    "api_path": "app.aigc_video_replication.case/fromJob",
+    "api_method": "POST",
+    "permission_key": "aigc_video_replication:case:fromJob"
+  },
+  {
+    "api_path": "app.aigc_video_replication.case/status",
+    "api_method": "POST",
+    "permission_key": "aigc_video_replication:case:status"
+  },
+  {
+    "api_path": "app.aigc_video_replication.case/delete",
+    "api_method": "POST",
+    "permission_key": "aigc_video_replication:case:delete"
+  },
+  {
+    "api_path": "app.aigc_video_replication.case/options",
+    "api_method": "GET",
+    "permission_key": "aigc_video_replication:case:options"
+  },
+  {
+    "api_path": "app.aigc_video_replication.case/builtin",
+    "api_method": "POST",
+    "permission_key": "aigc_video_replication:case:builtin"
+  },
+  {
+    "api_path": "app.aigc_video_replication.case/builtinFromJob",
+    "api_method": "POST",
+    "permission_key": "aigc_video_replication:case:builtinFromJob"
+  }
+]

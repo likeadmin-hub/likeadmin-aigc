@@ -1,0 +1,50 @@
+[
+  {
+    "source_menu_key": "aigc_depth_replication",
+    "app_code": "aigc_depth_replication",
+    "source": "app",
+    "type": "M",
+    "name": "深度复刻",
+    "paths": "aigc-depth-replication",
+    "component": "",
+    "perms": "",
+    "children": [
+      {
+        "source_menu_key": "aigc_depth_replication_config",
+        "app_code": "aigc_depth_replication",
+        "source": "app",
+        "type": "C",
+        "name": "创作配置",
+        "paths": "config",
+        "component": "apps/aigc_depth_replication/config",
+        "perms": "app.aigc_depth_replication.config/detail",
+        "children": [
+          {
+            "source_menu_key": "aigc_depth_replication_save",
+            "app_code": "aigc_depth_replication",
+            "source": "app",
+            "type": "A",
+            "name": "保存配置",
+            "paths": "",
+            "component": "",
+            "perms": "app.aigc_depth_replication.config/setup",
+            "children": []
+          }
+        ]
+      },
+      {
+        "source_menu_key": "aigc_depth_replication_jobs",
+        "app_code": "aigc_depth_replication",
+        "source": "app",
+        "type": "C",
+        "name": "创作记录",
+        "paths": "jobs",
+        "component": "apps/aigc_depth_replication/jobs",
+        "perms": "app.aigc_depth_replication.job/lists",
+        "children": []
+      }
+    ],
+    "sort": 84,
+    "icon": "el-icon-VideoCamera"
+  }
+]

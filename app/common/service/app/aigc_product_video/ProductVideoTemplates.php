@@ -5,6 +5,7 @@ namespace app\common\service\app\aigc_product_video;
 use app\common\model\app\AppCase;
 use app\common\service\app\AppCaseService;
 use app\common\service\ai\StudioMediaInputService;
+use app\common\service\ai\StudioMediaOwnershipException;
 use app\common\service\SubmitLockService;
 use InvalidArgumentException;
 use think\facade\Db;
@@ -14,12 +15,17 @@ final class ProductVideoTemplates
 {
     public static function snapshot(array $input): array
     {
-        $body=ProductVideoPolicy::body($input);
+        $body=ProductVideoPolicy::body($input, ProductVideoPolicy::templateApp());
         $fresh=!empty($body['plan'])&&($body['plan']['input_key']??'')===ProductVideoPolicy::planKey($body);
         $body['images']=array_map(static fn($image)=>array_intersect_key((array)$image,array_flip(['uri','name','role','reference_slot_id','mention_name','storage_scope','storage_engine','storage_domain'])), $body['images']);
         $selection=$body['video_selection'];$body['video_selection']=[];
         foreach(['model_id','quality','ratio','duration'] as $key)if(array_key_exists($key,$selection))$body['video_selection'][$key]=$selection[$key];
-        $body['normal_source']='prompt';$body['requirements']='';$body['reference_video']=null;$body['reference_analysis']=null;$body['generation_assets']=[];
+        if (ProductVideoPolicy::templateApp() === ProductVideoPolicy::SALE) {
+            if ($body['normal_source'] === 'template') $body['prompt'] = SaleVideoWorkflow::UGC;
+        } else {
+            $body['normal_source'] = 'prompt';
+        }
+        $body['requirements']='';$body['reference_video']=null;$body['reference_analysis']=null;$body['generation_assets']=[];
         $body['analysis_model_id']='';$body['planning_model_id']='';
         $body['prompt_review_images']=array_column($body['images'],'uri');
         $body['selected_mentions']=array_map(static fn($image)=>['name'=>$image['mention_name']??'','type'=>'image','reference_slot_id'=>$image['reference_slot_id']??'','uri'=>$image['uri']],$body['images']);
@@ -43,7 +49,7 @@ final class ProductVideoTemplates
     private static function row(int $scope,int $id,bool $public=false): array
     {
         ProductVideoBuiltins::sync();
-        $q=AppCase::where(['id'=>$id,'app_code'=>ProductVideoPolicy::APP,'delete_time'=>0]);
+        $q=AppCase::where(['id'=>$id,'app_code'=>ProductVideoPolicy::templateApp(),'delete_time'=>0]);
         if($scope>0||$public)self::visibleTo($q,$scope);
         if($public)$q->where('status',1);
         $row=$q->find();if(!$row)throw new InvalidArgumentException('灵感模板不存在或已停用');return $row->toArray();
@@ -58,7 +64,7 @@ final class ProductVideoTemplates
     public static function lists(int $scope,array $params,bool $public=false): array
     {
         if($public)ProductVideoService::available($scope);ProductVideoBuiltins::sync();
-        $q=AppCase::where(['app_code'=>ProductVideoPolicy::APP,'delete_time'=>0]);if($scope>0||$public)self::visibleTo($q,$scope);
+        $q=AppCase::where(['app_code'=>ProductVideoPolicy::templateApp(),'delete_time'=>0]);if($scope>0||$public)self::visibleTo($q,$scope);
         if($public)$q->where('status',1);elseif(isset($params['status'])&&$params['status']!=='')$q->where('status',(int)$params['status']);
         if(trim((string)($params['keyword']??''))!=='')$q->whereLike('title','%'.addcslashes(mb_substr(trim($params['keyword']),0,100),'\\%_').'%');
         $page=max(1,(int)($params['page_no']??1));$size=max(1,min(30,(int)($params['page_size']??20)));$count=(clone $q)->count();
@@ -93,18 +99,37 @@ final class ProductVideoTemplates
         return $row;
     }
 
+    /** Saved templates can contain administrator replacements alongside the job's original images. */
+    public static function jobImages(int $tenant, int $user, array $images, bool $allowAdminReplacements = false): array
+    {
+        $verified = [];
+        foreach (array_values($images) as $index => $image) {
+            try {
+                $verified[] = StudioMediaInputService::validateImages($tenant, $user, [$image], 1)[0];
+            } catch (StudioMediaOwnershipException $e) {
+                $position = $index + 1;
+                if (!$allowAdminReplacements) {
+                    throw new InvalidArgumentException("第 {$position} 张商品图的上传记录无效，请恢复原素材或使用有效图片新建模板", 0, $e);
+                }
+                $verified[] = ProductVideoAdminMedia::verifyStored($tenant, $image, 10,
+                    "第 {$position} 张商品图的上传记录无效，请在模板中替换该图后重试");
+            }
+        }
+        return $verified;
+    }
+
     public static function fromJob(int $scope,int $id,array $params): array
     {
         $job=ProductVideoJobs::owned($scope,0,$id,true);
         if($job['action']!=='video'||!in_array($job['status'],['success','partial'],true))throw new InvalidArgumentException('只有已完成的视频作品可以设为灵感模板');
-        $body=self::configuration($job);$body['images']=StudioMediaInputService::validateImages((int)$job['tenant_id'],(int)$job['user_id'],$body['images'],15);
+        $body=self::configuration($job);$body['images']=self::jobImages((int)$job['tenant_id'],(int)$job['user_id'],$body['images']);
         $media=ProductVideoPolicy::json($job['result_json'])['videos'][0]??[];
         $uri=(string)($media['video_uri']??$media['uri']??'');
         if($uri===''||empty($media['storage_engine']))throw new InvalidArgumentException('作品尚未保存到系统存储，暂不能设为模板');
         $media=array_intersect_key($media,array_flip(['uri','video_uri','storage_scope','storage_engine','storage_domain','duration','width','height']));$media['uri']=$uri;
         $lock=SubmitLockService::acquire('product_video_case_'.$id,(int)$job['tenant_id']);
         try{
-            $old=AppCase::where(['tenant_id'=>$job['tenant_id'],'app_code'=>ProductVideoPolicy::APP,'source_task_id'=>$id,'delete_time'=>0])->order('id','desc')->find();
+            $old=AppCase::where(['tenant_id'=>$job['tenant_id'],'app_code'=>ProductVideoPolicy::templateApp(),'source_task_id'=>$id,'delete_time'=>0])->order('id','desc')->find();
             return self::persist((int)$job['tenant_id'],$old?$old->toArray():null,$body,$media,$id,$params);
         }finally{SubmitLockService::release($lock);}
     }
@@ -143,6 +168,9 @@ final class ProductVideoTemplates
         $patch=(array)($params['configuration']??[]);$body=$source;
         if(!empty($params['preview']['file_id']))$media=ProductVideoAdminMedia::asset($tenant,(array)$params['preview'],20);
         foreach(['mode','reference_mode','product_info','prompt','market_region','language','audio','analyze_chapters','video_selection'] as $key)if(array_key_exists($key,$patch))$body[$key]=$patch[$key];
+        if (ProductVideoPolicy::templateApp() === ProductVideoPolicy::SALE && isset($patch['normal_source'])) {
+            $body['normal_source'] = $patch['normal_source'];
+        }
         // References can be reordered or removed; only the source's authorized objects can be published.
         if(isset($patch['images'])){
             $allowed=array_column($source['images'],null,'uri');$images=[];
@@ -155,12 +183,12 @@ final class ProductVideoTemplates
         $body=self::snapshot($body);
         if(!$body['images']||$body['prompt']==='')throw new InvalidArgumentException('请保留商品素材并填写视频描述');
         $model=ProductVideoCatalog::model($tenant,$body);self::validate($model,$body);
-        $title=ProductVideoPolicy::text($params['title']??$old['title']??'商品视频灵感',100);if($title==='')throw new InvalidArgumentException('请填写模板名称');
+        $title=ProductVideoPolicy::text($params['title']??$old['title']??(ProductVideoPolicy::name().'灵感'),100);if($title==='')throw new InvalidArgumentException('请填写模板名称');
         $config=['model_name'=>$model['label'],'generation_request'=>['model_id'=>$model['id'],'prompt'=>$body['prompt'],
             'quality'=>$body['video_selection']['quality'],'ratio'=>$body['video_selection']['ratio'],'duration'=>$body['video_selection']['duration'],
             'reference_assets'=>$body['images'],'reference_images'=>array_column($body['images'],'uri'),
             'advanced_params'=>['product_video'=>$body,'product_video_media'=>$media]]];
-        $saved=AppCaseService::save($tenant,ProductVideoPolicy::APP,['id'=>$old['id']??0,'title'=>$title,'prompt'=>$body['prompt'],'media_type'=>'video',
+        $saved=AppCaseService::save($tenant,ProductVideoPolicy::templateApp(),['id'=>$old['id']??0,'title'=>$title,'prompt'=>$body['prompt'],'media_type'=>'video',
             'cover_uri'=>$body['images'][0]['uri'],'media_uri'=>$media['uri'],'reference_images'=>array_column($body['images'],'uri'),'config_json'=>$config,
             'source_task_id'=>$jobId,'source_result_id'=>0,'status'=>(int)($params['status']??$old['status']??1)===1?1:0,'sort'=>max(0,min(9999,(int)($params['sort']??$old['sort']??0)))]);
         return self::detail($tenant,(int)$saved['id']);
@@ -174,9 +202,9 @@ final class ProductVideoTemplates
     }
 
     public static function status(int $scope,int $id,int $status,array $params=[]): void
-    {$row=self::row($scope,$id);if(ProductVideoBuiltins::info($id)){ProductVideoBuiltins::change($scope,$id,$params+['status'=>$status],'status');return;}AppCaseService::setStatus((int)$row['tenant_id'],ProductVideoPolicy::APP,$id,$status===1?1:0);}
+    {$row=self::row($scope,$id);if(ProductVideoBuiltins::info($id)){ProductVideoBuiltins::change($scope,$id,$params+['status'=>$status],'status');return;}AppCaseService::setStatus((int)$row['tenant_id'],ProductVideoPolicy::templateApp(),$id,$status===1?1:0);}
     public static function delete(int $scope,int $id,array $params=[]): void
-    {$row=self::row($scope,$id);if(ProductVideoBuiltins::info($id)){ProductVideoBuiltins::change($scope,$id,$params,'delete');return;}AppCaseService::delete((int)$row['tenant_id'],ProductVideoPolicy::APP,$id);}
+    {$row=self::row($scope,$id);if(ProductVideoBuiltins::info($id)){ProductVideoBuiltins::change($scope,$id,$params,'delete');return;}AppCaseService::delete((int)$row['tenant_id'],ProductVideoPolicy::templateApp(),$id);}
 
     public static function remix(int $tenant,int $user,int $id): array
     {
@@ -214,7 +242,12 @@ final class ProductVideoTemplates
 
     public static function adminDetail(int $scope,int $id): array
     {
-        $job=ProductVideoJobs::owned($scope,0,$id,true);if($job['action']!=='video')throw new InvalidArgumentException('创作记录仅展示视频任务');
+        $job=ProductVideoJobs::owned($scope,0,$id,true);
+        if (ProductVideoPolicy::replicating()) {
+            $snapshot = ProductVideoPolicy::json($job['request_json'])['snapshot'] ?? [];
+            return ProductVideoJobs::adminDto($job) + ['configuration'=>ProductVideoService::publicBody($snapshot,(int)$job['tenant_id'])];
+        }
+        if($job['action']!=='video')throw new InvalidArgumentException('创作记录仅展示视频任务');
         return ProductVideoJobs::adminDto($job)+['tenant_id'=>(int)$job['tenant_id'],'user_id'=>(int)$job['user_id'],'configuration'=>ProductVideoService::publicBody(self::configuration($job),(int)$job['tenant_id'])];
     }
 }

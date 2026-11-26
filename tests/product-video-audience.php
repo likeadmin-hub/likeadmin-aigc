@@ -24,7 +24,7 @@ try{
   audienceCheck($filled['body']['product_info']===$result['product_info'],'Completed analysis fills product information directly');
   audienceCheck($filled['body']['prompt']===$result['video_prompt']&&$filled['body']['plan']['data']['video_prompt']===$result['video_prompt'],'Completed analysis fills the actual description and its plan from one result');
   audienceCheck($filled['body']['market_region']===$region&&$filled['body']['language']===$language,'Autofill preserves chosen audience');
-  $video=J::prepare(1,1,['project_id'=>$project['id'],'revision'=>2,'action'=>'video']);$method=new ReflectionMethod(W::class,'mediaRequest');$payload=$method->invoke(null,'video',$video['request']);
+  $video=J::prepare(1,1,['project_id'=>$project['id'],'revision'=>2,'action'=>'video']);$payload=$video['request'];
   audienceCheck(str_contains($payload['prompt'],'表达语言：'.$language)&&str_contains($payload['prompt'],'销售地区：'.$region),'Both audience choices reach the final provider-facing video prompt');
   audienceCheck(str_contains($payload['prompt'],$result['video_prompt']),'Final video uses the exact visible description');
   foreach(['market_region'=>'其他地区','language'=>'其他语言'] as $key=>$value){$changed=$filled['body'];$changed[$key]=$value;audienceCheck(P::planKey($changed)!==P::planKey($filled['body']),'Audience edits invalidate old analysis');try{P::prompt($changed);throw new RuntimeException('Stale analysis was accepted');}catch(InvalidArgumentException){audienceCheck(true,'Stale audience cannot submit old analysis');}}

@@ -8,6 +8,7 @@ return [
         'copywriting:worker' => 'app\common\command\CopywritingWorker',
         'copywriting:repair' => 'app\common\command\CopywritingRepair',
         'point-alert:maintain' => 'app\\common\\command\\PointAlertMaintain',
+        'depth-replication:worker' => 'app\\common\\command\\DepthReplicationWorkerCommand',
         'product-video:worker' => 'app\\common\\command\\ProductVideoWorkerCommand',
         'canvas:adapt-projects' => 'app\\common\\command\\CanvasAdaptProjects',
         'home-agent:stt-reconcile' => 'app\\common\\command\\HomeAgentSttReconcile',

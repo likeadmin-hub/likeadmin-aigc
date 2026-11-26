@@ -18,18 +18,19 @@ final class ProductVideoImport
     {
         $maximum = (int)($model['max_reference_images'] ?? 0);
         if ($maximum < 1) throw new InvalidArgumentException('当前视频模型不支持商品图片，请更换模型');
-        return min(15, $maximum);
+        return min(ProductVideoPolicy::app() === ProductVideoPolicy::SALE ? 10 : 15, $maximum);
     }
 
     public static function handle(int $tenant, int $user, array $params): array
     {
         ProductVideoService::available($tenant, $user);
         if ($tenant < 1 || $user < 1) throw new InvalidArgumentException('请登录后导入商品');
-        $lock = SubmitLockService::acquire('product_video_import', $tenant, $user);
+        $lock = SubmitLockService::acquire(ProductVideoPolicy::app() === ProductVideoPolicy::SALE ? 'sale_video_import' : 'product_video_import', $tenant, $user);
         try {
             $id = (string)($params['import_id'] ?? '');
             if ($id === '') {
-                $target = ProductVideoAmazon::target((string)($params['url'] ?? ''));
+                $url = (string)($params['url'] ?? '');
+                $target = ProductVideoPolicy::app() === ProductVideoPolicy::SALE ? SaleVideoWorkflow::target($url) : ProductVideoAmazon::target($url);
                 $modelId = ProductVideoPolicy::text($params['model_id'] ?? '', 100);
                 if ($modelId === '') throw new InvalidArgumentException('请先选择视频模型');
                 $maximum = self::capacity(ProductVideoCatalog::model($tenant, ['video_selection' => ['model_id' => $modelId]]));
@@ -43,7 +44,7 @@ final class ProductVideoImport
                 }
                 $id = bin2hex(random_bytes(16));
                 $session = ['import_id' => $id, 'status' => 'pending', 'phase' => 'page', 'source_url' => $target['url'],
-                    'model_id' => $modelId, 'maximum' => $maximum, 'images' => [], 'candidates' => [], 'cursor' => 0,
+                    'provider' => $target['provider'] ?? 'amazon', 'model_id' => $modelId, 'maximum' => $maximum, 'images' => [], 'candidates' => [], 'cursor' => 0,
                     'name' => '', 'product_info' => '', 'skipped' => 0, 'created_at' => time(), 'error' => ''];
                 Cache::set(self::key($tenant, $user, $id), $session, self::TTL);
                 Cache::set($activeKey, $id, self::TTL);
@@ -55,7 +56,8 @@ final class ProductVideoImport
             if (time() - $session['created_at'] > self::TTL) throw new InvalidArgumentException('商品导入已过期，请重新导入');
             if (isset($params['model_id']) && (string)$params['model_id'] !== $session['model_id']) throw new InvalidArgumentException('视频模型已切换，请重新导入');
             if (in_array($session['status'], ['success', 'failed'], true)) return self::dto($session, $tenant, $user);
-            $session = self::advance($session, [ProductVideoAmazon::class, 'fetch'], static function (string $bytes, string $mime) use ($tenant, $user): array {
+            $fetch = ($session['provider'] ?? 'amazon') === 'tiktok' ? [SaleVideoWorkflow::class, 'fetchShop'] : [ProductVideoAmazon::class, 'fetch'];
+            $session = self::advance($session, $fetch, static function (string $bytes, string $mime) use ($tenant, $user): array {
                 return AigcImageAssetService::persistGeneratedImage('data:' . $mime . ';base64,' . base64_encode($bytes), $tenant, $user, true, 40000000);
             });
             Cache::set($key, $session, self::TTL);
@@ -82,7 +84,10 @@ final class ProductVideoImport
         try {
             if ($session['phase'] === 'page') {
                 $page = $fetch($session['source_url'], false);
-                $data = ProductVideoAmazon::metadata($page['body'], $page['url']);
+                $data = ($session['provider'] ?? 'amazon') === 'tiktok'
+                    ? ProductVideoProducts::metadata($page['body'], $page['url']) + ['source_url'=>$page['url']]
+                    : ProductVideoAmazon::metadata($page['body'], $page['url']);
+                if (!$data['images']) throw new InvalidArgumentException('未读取到商品图片，请手动上传');
                 $session['source_url'] = $data['source_url'];
                 $session['name'] = $data['name']; $session['product_info'] = $data['product_info'];
                 $session['candidates'] = array_slice($data['images'], 0, min(45, $session['maximum'] * 3 + 3));
@@ -135,6 +140,6 @@ final class ProductVideoImport
 
     private static function key(int $tenant, int $user, string $id): string
     {
-        return 'product_video_import_v1:' . $tenant . ':' . $user . ':' . $id;
+        return (ProductVideoPolicy::app() === ProductVideoPolicy::SALE ? 'sale_video_import_v1:' : 'product_video_import_v1:') . $tenant . ':' . $user . ':' . $id;
     }
 }

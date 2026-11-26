@@ -13,15 +13,27 @@ final class ProductVideoCatalog
     }
     private static function buildModels(int $tenant,string $id): array
     {
-        $rows=StudioVideoCatalogService::models($tenant,false,'reference',$id!==''?[$id]:null,$id==='');
+        $sale = ProductVideoPolicy::app() === ProductVideoPolicy::SALE;
+        $rows=StudioVideoCatalogService::models($tenant,false,'reference',$id!==''?[$id]:null,$id==='',$sale);
         $native=AigcVideoService::marketOptions($tenant)['channels']??[];$byId=[];foreach($native as $m)$byId[(string)$m['id']]=$m;
         foreach($rows as &$m){$source=$byId[(string)$m['id']]??[];$m['max_reference_videos']=(int)($source['max_reference_videos']??0);$m['max_reference_audios']=(int)($source['max_reference_audios']??0);
             $m['reference_video_duration_limits']=$source['reference_video_duration_limits']??[];
+            if (ProductVideoPolicy::replicating()) {
+                $m['replication_reference_modes'] = VideoReplicationWorkflow::referenceModes($source);
+            }
             if($id!==''){
                 $m['material_modes']=$source['material_modes']??[];$m['max_reference_images']=min(15,max($m['max_reference_images'],(int)($source['max_reference_images']??0)));
-                try{$m['supports_generate_audio']=MarketVideoRuntimeService::supportsGenerateAudio($tenant,['model_id'=>$id]+($m['specs'][0]??[]));}catch(\Throwable){$m['supports_generate_audio']=false;}
+                if (!$sale) {
+                    try{$m['supports_generate_audio']=MarketVideoRuntimeService::supportsGenerateAudio($tenant,['model_id'=>$id]+($m['specs'][0]??[]));}catch(\Throwable){$m['supports_generate_audio']=false;}
+                }
             }
-        }unset($m);return $rows;
+            if ($sale) {
+                $m['max_reference_images'] = min(10, max($m['max_reference_images'], (int)($source['max_reference_images'] ?? 0)));
+                $m['supports_generate_audio'] = true;
+            }
+        }
+        unset($m);
+        return $rows;
     }
     public static function model(int $tenant,array $body): array
     {

@@ -1,0 +1,338 @@
+{
+    "schema_version": 1,
+    "key": "builtin-f1037e8eb2957d40b369f5b0",
+    "version": 1,
+    "title": "带货视频灵感",
+    "status": 1,
+    "deleted": false,
+    "sort": 0,
+    "model_name": "Wan 3.0 - 生成视频",
+    "model_identity": {
+        "resource_type": "model",
+        "source_code": "likeadmin_api",
+        "upstream_resource_key": "model:wan-3-0-video:official",
+        "upstream_app_code": ""
+    },
+    "configuration": {
+        "template_version": "1.1.0",
+        "normal_source": "prompt",
+        "reference_mode": "reference",
+        "market_region": "美国",
+        "audio": true,
+        "analyze_chapters": false,
+        "prompt_review_images": [
+            "uploads/aigc_image/20261126/20261126165039311fa4847.jpg",
+            "uploads/aigc_image/20261126/20261126165040dc3503357.jpg",
+            "uploads/aigc_image/20261126/20261126165040afe687169.jpg",
+            "uploads/aigc_image/20261126/202611261650416d0535328.jpg",
+            "uploads/aigc_image/20261126/202611261650421d6f95562.jpg",
+            "uploads/aigc_image/20261126/20261126165042b50d22924.jpg",
+            "uploads/aigc_image/20261126/20261126165043074896349.jpg",
+            "uploads/aigc_image/20261126/202611261650439ce7a0811.jpg",
+            "uploads/aigc_image/20261126/20261126165044523556835.jpg",
+            "uploads/aigc_image/20261126/20261126165045360a14977.jpg"
+        ],
+        "generation_assets": [],
+        "selected_mentions": [
+            {
+                "name": "图片1",
+                "type": "image",
+                "reference_slot_id": "pv_c27985d4-c939-4630-a4e4-56ae73424b79",
+                "uri": "uploads/aigc_image/20261126/20261126165039311fa4847.jpg"
+            },
+            {
+                "name": "图片2",
+                "type": "image",
+                "reference_slot_id": "pv_26ab1643-8c14-4dba-aeed-d445aaf3a5a4",
+                "uri": "uploads/aigc_image/20261126/20261126165040dc3503357.jpg"
+            },
+            {
+                "name": "图片3",
+                "type": "image",
+                "reference_slot_id": "pv_24db31de-23b0-4a1a-bc4b-5b5159ed45a6",
+                "uri": "uploads/aigc_image/20261126/20261126165040afe687169.jpg"
+            },
+            {
+                "name": "图片4",
+                "type": "image",
+                "reference_slot_id": "pv_7040eec7-b854-4dbe-b799-28f60b3200b5",
+                "uri": "uploads/aigc_image/20261126/202611261650416d0535328.jpg"
+            },
+            {
+                "name": "图片5",
+                "type": "image",
+                "reference_slot_id": "pv_2eaba38f-60c1-403d-b360-83782a796801",
+                "uri": "uploads/aigc_image/20261126/202611261650421d6f95562.jpg"
+            },
+            {
+                "name": "图片6",
+                "type": "image",
+                "reference_slot_id": "pv_c381d9ae-c242-451c-b97f-2397f5591ca2",
+                "uri": "uploads/aigc_image/20261126/20261126165042b50d22924.jpg"
+            },
+            {
+                "name": "图片7",
+                "type": "image",
+                "reference_slot_id": "pv_6644bef5-3547-4480-81ed-95d6a5435846",
+                "uri": "uploads/aigc_image/20261126/20261126165043074896349.jpg"
+            },
+            {
+                "name": "图片8",
+                "type": "image",
+                "reference_slot_id": "pv_e694bb52-ba1c-497e-8e86-c1dfbdebba71",
+                "uri": "uploads/aigc_image/20261126/202611261650439ce7a0811.jpg"
+            },
+            {
+                "name": "图片9",
+                "type": "image",
+                "reference_slot_id": "pv_745ef4f6-6e74-41d1-961a-e292a8209c85",
+                "uri": "uploads/aigc_image/20261126/20261126165044523556835.jpg"
+            },
+            {
+                "name": "图片10",
+                "type": "image",
+                "reference_slot_id": "pv_0b96e075-78f9-4514-b6fd-e64df77f60c8",
+                "uri": "uploads/aigc_image/20261126/20261126165045360a14977.jpg"
+            }
+        ],
+        "mode": "normal",
+        "images": [
+            {
+                "uri": "uploads/aigc_image/20261126/20261126165039311fa4847.jpg",
+                "storage_scope": "platform",
+                "storage_engine": "qcloud",
+                "storage_domain": "https://aigclikeadmin-1304073946.cos.ap-guangzhou.myqcloud.com",
+                "name": "20261126165039311fa4847.jpg",
+                "role": "",
+                "reference_slot_id": "pv_c27985d4-c939-4630-a4e4-56ae73424b79",
+                "mention_name": "图片1"
+            },
+            {
+                "uri": "uploads/aigc_image/20261126/20261126165040dc3503357.jpg",
+                "storage_scope": "platform",
+                "storage_engine": "qcloud",
+                "storage_domain": "https://aigclikeadmin-1304073946.cos.ap-guangzhou.myqcloud.com",
+                "name": "20261126165040dc3503357.jpg",
+                "role": "",
+                "reference_slot_id": "pv_26ab1643-8c14-4dba-aeed-d445aaf3a5a4",
+                "mention_name": "图片2"
+            },
+            {
+                "uri": "uploads/aigc_image/20261126/20261126165040afe687169.jpg",
+                "storage_scope": "platform",
+                "storage_engine": "qcloud",
+                "storage_domain": "https://aigclikeadmin-1304073946.cos.ap-guangzhou.myqcloud.com",
+                "name": "20261126165040afe687169.jpg",
+                "role": "",
+                "reference_slot_id": "pv_24db31de-23b0-4a1a-bc4b-5b5159ed45a6",
+                "mention_name": "图片3"
+            },
+            {
+                "uri": "uploads/aigc_image/20261126/202611261650416d0535328.jpg",
+                "storage_scope": "platform",
+                "storage_engine": "qcloud",
+                "storage_domain": "https://aigclikeadmin-1304073946.cos.ap-guangzhou.myqcloud.com",
+                "name": "202611261650416d0535328.jpg",
+                "role": "",
+                "reference_slot_id": "pv_7040eec7-b854-4dbe-b799-28f60b3200b5",
+                "mention_name": "图片4"
+            },
+            {
+                "uri": "uploads/aigc_image/20261126/202611261650421d6f95562.jpg",
+                "storage_scope": "platform",
+                "storage_engine": "qcloud",
+                "storage_domain": "https://aigclikeadmin-1304073946.cos.ap-guangzhou.myqcloud.com",
+                "name": "202611261650421d6f95562.jpg",
+                "role": "",
+                "reference_slot_id": "pv_2eaba38f-60c1-403d-b360-83782a796801",
+                "mention_name": "图片5"
+            },
+            {
+                "uri": "uploads/aigc_image/20261126/20261126165042b50d22924.jpg",
+                "storage_scope": "platform",
+                "storage_engine": "qcloud",
+                "storage_domain": "https://aigclikeadmin-1304073946.cos.ap-guangzhou.myqcloud.com",
+                "name": "20261126165042b50d22924.jpg",
+                "role": "",
+                "reference_slot_id": "pv_c381d9ae-c242-451c-b97f-2397f5591ca2",
+                "mention_name": "图片6"
+            },
+            {
+                "uri": "uploads/aigc_image/20261126/20261126165043074896349.jpg",
+                "storage_scope": "platform",
+                "storage_engine": "qcloud",
+                "storage_domain": "https://aigclikeadmin-1304073946.cos.ap-guangzhou.myqcloud.com",
+                "name": "20261126165043074896349.jpg",
+                "role": "",
+                "reference_slot_id": "pv_6644bef5-3547-4480-81ed-95d6a5435846",
+                "mention_name": "图片7"
+            },
+            {
+                "uri": "uploads/aigc_image/20261126/202611261650439ce7a0811.jpg",
+                "storage_scope": "platform",
+                "storage_engine": "qcloud",
+                "storage_domain": "https://aigclikeadmin-1304073946.cos.ap-guangzhou.myqcloud.com",
+                "name": "202611261650439ce7a0811.jpg",
+                "role": "",
+                "reference_slot_id": "pv_e694bb52-ba1c-497e-8e86-c1dfbdebba71",
+                "mention_name": "图片8"
+            },
+            {
+                "uri": "uploads/aigc_image/20261126/20261126165044523556835.jpg",
+                "storage_scope": "platform",
+                "storage_engine": "qcloud",
+                "storage_domain": "https://aigclikeadmin-1304073946.cos.ap-guangzhou.myqcloud.com",
+                "name": "20261126165044523556835.jpg",
+                "role": "",
+                "reference_slot_id": "pv_745ef4f6-6e74-41d1-961a-e292a8209c85",
+                "mention_name": "图片9"
+            },
+            {
+                "uri": "uploads/aigc_image/20261126/20261126165045360a14977.jpg",
+                "storage_scope": "platform",
+                "storage_engine": "qcloud",
+                "storage_domain": "https://aigclikeadmin-1304073946.cos.ap-guangzhou.myqcloud.com",
+                "name": "20261126165045360a14977.jpg",
+                "role": "",
+                "reference_slot_id": "pv_0b96e075-78f9-4514-b6fd-e64df77f60c8",
+                "mention_name": "图片10"
+            }
+        ],
+        "reference_video": null,
+        "product_info": "【商品名称】JBL Go 5 - Ultra-portable IP68 waterproof & drop-proof speaker (Black)\n【商品编号】B0GHYJ7BS9\n【商品卖点】\n• Big sound in the palm of your hand: The JBL Go 5 packs louder legendary JBL sound with even deeper bass than before. It's seriously big sound from a speaker that fits in the palm of your hand.\n• Mood-boosting ambient edge lighting: Set the vibe with ambient edge lighting. Pick from light themes and get visual cues for power, pairing, low on battery, or in Auracast mode.\n• Up to 10 hours with Playtime Boost: Keep up the fun for up to 8 hours, plus an extra 2 with Playtime Boost. So you can squeeze more fun out of every charge.\n• All the proofs (dust, water, and drop): Beach days, surprise rain, clumsy hands—no problem. With IP68 waterproof and dust-proof protection and a tough drop-proof build, the JBL Go 5 keeps playing through it all.\n• AirTouch instant stereo pairing: Bump two JBL Go 5 speakers together to link them up through AirTouch for true stereo sound. It instantly pairs them for left and right stereo sound.\n• Link up and play with Auracast: Go bigger together by linking multiple JBL Auracast-enabled speakers wirelessly for an even wider, more immersive sound.\n• Pure sound with lossless playback: Plug in and hear your playlists in their purest form. The JBL Go 5 supports lossless USB-C audio for high-quality streaming that hits every detail.* *Requires compatible lossless audio content from supported apps/ services.\n• Customize with the JBL Portable app: Make your speaker yours. Fine-tune your sound with a 7-band EQ, select light themes, and update your tech on the fly—all from the JBL Portable app.\n【商品规格】\nAudio Output Mode：Surround\nMounting Type：Floor Standing\nSpeaker Type：Portable Speaker\nAdditional Features：Hi Res Audio, LED Light, Portable, Stereo Pairing, Waterproof\nAntenna Location：For Smartphones or Tablets\nColor：Black\nIs Waterproof：True\nWarranty Type：Limited\nControl Method：App, Touch\nSpeaker Maximum Output Power：4.8 watts\n【商品介绍】Big vibes, pocket-sized. The JBL Go 5 fits in the palm of your hand and somehow delivers legendary JBL sound with deep, rich bass that feels way too loud for something this small. Crystal-clear detail, serious low end—it's the kind of portable audio that makes people ask what speaker you're using. Beyond the sound, ambient edge lighting sets a soft glow around the speaker that shifts with what's happening—powering on, pairing, running low on battery. Pick a light theme that fits your mood and let it ride. And with up to 10 hours of playtime plus an extra 2 with Playtime Boost, this portable Bluetooth speaker keeps the soundtrack going well past sundown. Clumsy moment at the pool? No stress. IP68 waterproof and dustproof protection plus a drop-proof build means this outdoor waterproof speaker is genuinely built for real life—not just the careful version of it. Want to fill more space with sound? Bump two Go 5 speakers together and AirTouch instantly links them into true stereo. Or connect additional Auracas",
+        "prompt": "**Video Script: JBL Go 5**\n\n[0s-3s] \nVisual: A woman stands in a bright, sunny room with her phone propped on the table. She holds up the black JBL Go 5 speaker towards the camera.\nAudio (Speaker): \"You know how people say good things come in small packages? Well, check this out.\"\nReference Image: @图片1\n\n[3s-7s]\nVisual: The woman turns the speaker slightly to show the front grille and logo, then brings it closer to the lens so we see the white light strip glowing around the edges.\nAudio (Speaker): \"This is the new JBL Go 5. It’s tiny—fits right in my hand—but look at that ambient edge lighting. It totally sets the vibe.\"\nReference Image: @图片4\n\n[7s-12s]\nVisual: She flips the speaker over to reveal the rubberized bottom pads and points to them briefly before turning it back to the top buttons.\nAudio (Speaker): \"And don't worry about dropping it outside; it’s actually drop-proof and waterproof. Plus, you get up to ten hours of playtime on a single charge.\"\nReference Image: @图片10\n\n[12s-16s]\nVisual: Close-up shot of her thumb pressing the volume '+' button on the top surface. The side view shows the textured fabric weave clearly.\nAudio (Speaker): \"The controls are super tactile on top here. You’ve got your power, Bluetooth pairing... everything you need without digging through an app.\"\nReference Image: @图片9\n\n[16s-20s]\nVisual: The woman smiles at the camera, holding the speaker near her shoulder level again, showing off its portability.\nAudio (Speaker): \"Honestly, for something this size, the sound is surprisingly big. Definitely worth grabbing if you're always on the go.\"\nReference Image: @图片8",
+        "requirements": "",
+        "template_code": "ugc",
+        "language": "英语",
+        "plan": null,
+        "reference_analysis": null,
+        "analysis_model_id": "",
+        "planning_model_id": "",
+        "video_selection": {
+            "model_id": "",
+            "quality": "480P",
+            "ratio": "9:16",
+            "duration": 20
+        }
+    },
+    "media": {
+        "uri": "uploads/aigc_video/20261126/202611261735130d3385086.mp4",
+        "storage_scope": "platform",
+        "storage_engine": "qcloud",
+        "storage_domain": "https://aigclikeadmin-1304073946.cos.ap-guangzhou.myqcloud.com",
+        "width": 480,
+        "height": 854,
+        "duration": 20.04
+    },
+    "retained_media": [
+        {
+            "uri": "uploads/aigc_image/20261126/20261126165039311fa4847.jpg",
+            "storage_scope": "platform",
+            "storage_engine": "qcloud",
+            "storage_domain": "https://aigclikeadmin-1304073946.cos.ap-guangzhou.myqcloud.com",
+            "name": "20261126165039311fa4847.jpg",
+            "role": "",
+            "reference_slot_id": "pv_c27985d4-c939-4630-a4e4-56ae73424b79",
+            "mention_name": "图片1"
+        },
+        {
+            "uri": "uploads/aigc_image/20261126/20261126165040dc3503357.jpg",
+            "storage_scope": "platform",
+            "storage_engine": "qcloud",
+            "storage_domain": "https://aigclikeadmin-1304073946.cos.ap-guangzhou.myqcloud.com",
+            "name": "20261126165040dc3503357.jpg",
+            "role": "",
+            "reference_slot_id": "pv_26ab1643-8c14-4dba-aeed-d445aaf3a5a4",
+            "mention_name": "图片2"
+        },
+        {
+            "uri": "uploads/aigc_image/20261126/20261126165040afe687169.jpg",
+            "storage_scope": "platform",
+            "storage_engine": "qcloud",
+            "storage_domain": "https://aigclikeadmin-1304073946.cos.ap-guangzhou.myqcloud.com",
+            "name": "20261126165040afe687169.jpg",
+            "role": "",
+            "reference_slot_id": "pv_24db31de-23b0-4a1a-bc4b-5b5159ed45a6",
+            "mention_name": "图片3"
+        },
+        {
+            "uri": "uploads/aigc_image/20261126/202611261650416d0535328.jpg",
+            "storage_scope": "platform",
+            "storage_engine": "qcloud",
+            "storage_domain": "https://aigclikeadmin-1304073946.cos.ap-guangzhou.myqcloud.com",
+            "name": "202611261650416d0535328.jpg",
+            "role": "",
+            "reference_slot_id": "pv_7040eec7-b854-4dbe-b799-28f60b3200b5",
+            "mention_name": "图片4"
+        },
+        {
+            "uri": "uploads/aigc_image/20261126/202611261650421d6f95562.jpg",
+            "storage_scope": "platform",
+            "storage_engine": "qcloud",
+            "storage_domain": "https://aigclikeadmin-1304073946.cos.ap-guangzhou.myqcloud.com",
+            "name": "202611261650421d6f95562.jpg",
+            "role": "",
+            "reference_slot_id": "pv_2eaba38f-60c1-403d-b360-83782a796801",
+            "mention_name": "图片5"
+        },
+        {
+            "uri": "uploads/aigc_image/20261126/20261126165042b50d22924.jpg",
+            "storage_scope": "platform",
+            "storage_engine": "qcloud",
+            "storage_domain": "https://aigclikeadmin-1304073946.cos.ap-guangzhou.myqcloud.com",
+            "name": "20261126165042b50d22924.jpg",
+            "role": "",
+            "reference_slot_id": "pv_c381d9ae-c242-451c-b97f-2397f5591ca2",
+            "mention_name": "图片6"
+        },
+        {
+            "uri": "uploads/aigc_image/20261126/20261126165043074896349.jpg",
+            "storage_scope": "platform",
+            "storage_engine": "qcloud",
+            "storage_domain": "https://aigclikeadmin-1304073946.cos.ap-guangzhou.myqcloud.com",
+            "name": "20261126165043074896349.jpg",
+            "role": "",
+            "reference_slot_id": "pv_6644bef5-3547-4480-81ed-95d6a5435846",
+            "mention_name": "图片7"
+        },
+        {
+            "uri": "uploads/aigc_image/20261126/202611261650439ce7a0811.jpg",
+            "storage_scope": "platform",
+            "storage_engine": "qcloud",
+            "storage_domain": "https://aigclikeadmin-1304073946.cos.ap-guangzhou.myqcloud.com",
+            "name": "202611261650439ce7a0811.jpg",
+            "role": "",
+            "reference_slot_id": "pv_e694bb52-ba1c-497e-8e86-c1dfbdebba71",
+            "mention_name": "图片8"
+        },
+        {
+            "uri": "uploads/aigc_image/20261126/20261126165044523556835.jpg",
+            "storage_scope": "platform",
+            "storage_engine": "qcloud",
+            "storage_domain": "https://aigclikeadmin-1304073946.cos.ap-guangzhou.myqcloud.com",
+            "name": "20261126165044523556835.jpg",
+            "role": "",
+            "reference_slot_id": "pv_745ef4f6-6e74-41d1-961a-e292a8209c85",
+            "mention_name": "图片9"
+        },
+        {
+            "uri": "uploads/aigc_image/20261126/20261126165045360a14977.jpg",
+            "storage_scope": "platform",
+            "storage_engine": "qcloud",
+            "storage_domain": "https://aigclikeadmin-1304073946.cos.ap-guangzhou.myqcloud.com",
+            "name": "20261126165045360a14977.jpg",
+            "role": "",
+            "reference_slot_id": "pv_0b96e075-78f9-4514-b6fd-e64df77f60c8",
+            "mention_name": "图片10"
+        },
+        {
+            "uri": "uploads/aigc_video/20261126/202611261735130d3385086.mp4",
+            "storage_scope": "platform",
+            "storage_engine": "qcloud",
+            "storage_domain": "https://aigclikeadmin-1304073946.cos.ap-guangzhou.myqcloud.com",
+            "width": 480,
+            "height": 854,
+            "duration": 20.04
+        }
+    ]
+}

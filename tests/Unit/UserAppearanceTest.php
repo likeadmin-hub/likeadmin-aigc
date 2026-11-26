@@ -8,6 +8,11 @@ final class UserAppearanceTest extends TestCase
     {
         return ['id'=>'custom-12345678','name'=>'我的皮肤','mode'=>'dark','primary'=>'#AbC123','secondary'=>'#456789','background_id'=>7];
     }
+    public function testNewAccountsStartWithClassicDarkAppearance(): void
+    {
+        self::assertSame('default', UserAppearanceService::defaults()['selected']);
+        self::assertSame('dark', UserAppearanceService::defaults()['mode']);
+    }
     public function testEveryPresetRoundTripsWithoutCustomData(): void
     {
         foreach (UserAppearanceService::PRESETS as $id) {

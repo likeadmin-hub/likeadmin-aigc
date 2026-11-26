@@ -15,6 +15,42 @@ final class AppCatalogArtwork
     private const KEEP_FOR = 86400;
     private const RETRY_AFTER = 60;
 
+    // Older installations can still have these stock covers in the app or tenant record.
+    private const BUNDLED_VIDEO_COVERS = [
+        'aigc_sale_video' => [],
+        'aigc_depth_replication' => [],
+        'aigc_video_replication' => ['resource/image/apps/aigc_short_drama/style-covers/cinematic.webp'],
+    ];
+
+    public static function bundledCoverUri(string $code, string $configuredUri): string
+    {
+        if (!isset(self::BUNDLED_VIDEO_COVERS[$code])) {
+            return '';
+        }
+        $uri = 'resource/image/apps/' . $code . '/cover.webp';
+        $defaults = ['', $uri, 'resource/image/common/menu_generator.png', ...self::BUNDLED_VIDEO_COVERS[$code]];
+        $site = rtrim(request()->domain(), '/') . '/';
+        if (str_starts_with($configuredUri, $site)) {
+            $configuredUri = substr($configuredUri, strlen($site));
+        }
+        $configuredUri = ltrim($configuredUri, '/');
+        if (preg_match('~^' . preg_quote($uri, '~') . '\?v=[0-9a-f]{12}$~D', $configuredUri)) {
+            return $uri;
+        }
+        return in_array($configuredUri, $defaults, true) ? $uri : '';
+    }
+
+    public static function bundledCoverUrl(string $code, string $configuredUri): string
+    {
+        $uri = self::bundledCoverUri($code, $configuredUri);
+        if ($uri === '') {
+            return '';
+        }
+        $file = public_path() . $uri;
+        $hash = is_file($file) && is_readable($file) ? hash_file('sha256', $file) : false;
+        return $hash ? '/' . $uri . '?v=' . substr($hash, 0, 12) : '';
+    }
+
     /** Same-app artwork for admin catalogs, even when the cloud cannot be reached. */
     public static function byCode(bool $refresh = true): array
     {

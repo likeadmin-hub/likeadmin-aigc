@@ -202,6 +202,7 @@ class MarketVideoRuntimeService
                 'api_doc' => (string)($metadata['api_doc'] ?? ''),
                 'supported_asset_types' => self::supportedAssetTypes($product, $metadata),
                 'max_reference_images' => self::advertisedReferenceLimit($product, $metadata, 'image'),
+                'supports_audio_output' => self::supportsAudioGeneration($product, $metadata, true),
                 'max_reference_videos' => self::referenceLimit($product, $metadata, 'video'),
                 'reference_video_duration_limits' => self::referenceVideoDurationLimits($product, $metadata),
                 'max_reference_audios' => self::referenceLimit($product, $metadata, 'audio'),
@@ -355,7 +356,7 @@ class MarketVideoRuntimeService
         return self::supportsAudioGeneration((array)$market['product'], self::metadata((array)$market['product']));
     }
 
-    private static function supportsAudioGeneration(array $product, array $metadata): bool
+    private static function supportsAudioGeneration(array $product, array $metadata, bool $includeNativeSwitches = false): bool
     {
         $overrides=MarketModelCapabilities::overrides($product);
         if(array_key_exists('supports_audio_output',$overrides))return $overrides['supports_audio_output'];
@@ -364,7 +365,8 @@ class MarketVideoRuntimeService
             return true;
         }
         $schema = self::arrayValue($metadata['params_schema'] ?? []);
-        return self::schemaDeclaresParameter($schema, 'generate_audio')
+        return ($includeNativeSwitches && MarketVideoAudioOutput::field($schema) !== null)
+            || self::schemaDeclaresParameter($schema, 'generate_audio')
             || self::schemaDeclaresParameter($schema, 'audio');
     }
 
@@ -984,6 +986,7 @@ class MarketVideoRuntimeService
         $matches = self::availableSkus($tenantId, $productId); $quality = self::value($selection, ['resolution', 'quality']); $duration = (int)self::value($selection, ['duration']); $ratio = self::value($selection, ['ratio', 'aspect_ratio', 'size']); $mode = self::inputMode($selection);
         $matches = array_values(array_filter($matches, static function (array $row) use ($quality, $duration, $ratio, $mode, $productData, $selection): bool {
             $locked = self::arrayValue($row['sku']['locked_params'] ?? []); $resolution = self::resolution($locked); $lockedDuration = self::duration($locked); $skuMode = self::skuInputMode($locked);
+            if (!empty($selection['require_generated_audio']) && !MarketVideoAudioOutput::allowsSound($locked)) return false;
             if (!self::skuMatchesGenerationMode($productData, $locked, $selection)) return false;
             if ($quality !== '' && $resolution !== '' && strtolower($quality) !== strtolower($resolution)) return false;
             if ($duration > 0 && $lockedDuration > 0 && $lockedDuration !== $duration) return false;
@@ -1243,6 +1246,9 @@ class MarketVideoRuntimeService
             MarketGenerationApplicationProtocol::assertPreparedVideo($snapshot, $payload);
             $prepared = PreparedMarketGeneration::application($payload, $meter, $request);
         }
+        if (!empty($request['require_generated_audio'])) {
+            MarketVideoAudioOutput::assertEnabled($prepared->nativeInput);
+        }
         MarketGenerationMaterials::assertPreserved($request, $prepared->nativeInput, static fn($asset)=>
             str_starts_with((string)$asset['url'], 'asset://') ? $asset['url'] : AigcVideoReferenceAssetService::publicUrl($asset));
         return $prepared;
@@ -1287,7 +1293,7 @@ class MarketVideoRuntimeService
     private static function declaredVideoOptions(array $schema, array $request): array
     {
         $result = [];
-        foreach (['seed', 'generate_audio', 'audio', 'watermark', 'aigc_watermark', 'camera_fixed', 'prompt_extend', 'negative_prompt', 'draft', 'service_tier', 'audio_setting', 'frames', 'fps', 'motion_bucket_id', 'cfg_scale', 'enhance_prompt'] as $key) {
+        foreach ([...MarketVideoAudioOutput::SWITCHES, 'seed', 'watermark', 'aigc_watermark', 'camera_fixed', 'prompt_extend', 'negative_prompt', 'draft', 'service_tier', 'audio_setting', 'frames', 'fps', 'motion_bucket_id', 'cfg_scale', 'enhance_prompt'] as $key) {
             $definition = self::schemaParameterDefinition($schema, $key);
             if ($definition === [] || !array_key_exists($key, $request) || $request[$key] === null) continue;
             $value = $request[$key];
@@ -1323,6 +1329,9 @@ class MarketVideoRuntimeService
 
     private static function modelPayload(array $snapshot, array $request, string $idempotency): array
     {
+        if (!empty($request['require_generated_audio'])) {
+            $request = MarketVideoAudioOutput::enable($snapshot, $request);
+        }
         if(MarketOwnedPlatformContractRules::applies($snapshot,'q4_video_v1')){
             $body=MarketOwnedPlatformContractRules::q4Payload($snapshot,$request);
             return array_merge(self::marketContext($snapshot,'power_market_video'),$body,
@@ -1815,6 +1824,9 @@ class MarketVideoRuntimeService
 
     private static function appPayload(array $snapshot, array $request, string $idempotency): array
     {
+        if (!empty($request['require_generated_audio'])) {
+            $request = MarketVideoAudioOutput::enable($snapshot, $request);
+        }
         $locked = self::arrayValue($snapshot['locked_params'] ?? []);
         $assets = self::assets($request);
         return MarketGenerationApplicationProtocol::video($snapshot, $request, $idempotency, $assets,
@@ -2394,6 +2406,12 @@ class MarketVideoRuntimeService
         if (self::requiresFlatImageReferences($meta)) {
             return ['asset_types'=>['image'], 'generation_modes'=>['image_reference']];
         }
+        if (self::hasImageAndAudioReferenceContent($meta)) {
+            return [
+                'asset_types' => ['image', 'audio'],
+                'generation_modes' => ['text_to_video', 'image_reference', 'omni_reference', 'audio_reference'],
+            ];
+        }
         $schema = self::arrayValue($meta['params_schema'] ?? []);
         $rawTypes = [];
         $rawRoles = [];
@@ -2528,6 +2546,19 @@ class MarketVideoRuntimeService
             'generation_modes' => array_values(array_filter($order, static fn(string $mode): bool => in_array($mode, $modes, true))),
         ];
     }
+    /** An ordinary reference image has different semantics from an explicit first or last frame. */
+    private static function hasImageAndAudioReferenceContent(array $meta): bool
+    {
+        $schema = MarketGenerationSchema::properties(self::arrayValue($meta['params_schema'] ?? []));
+        $fields = self::arrayValue($schema['content']['items']['properties'] ?? []);
+        if (!is_array($fields['role'] ?? null) || !is_array($fields['type'] ?? null)) return false;
+        $types = MarketGenerationSchema::choices($fields['type'] ?? []);
+        $roles = MarketGenerationSchema::choices($fields['role'] ?? []);
+        sort($types);
+        sort($roles);
+        return $types === ['audio_url', 'image_url', 'text'] && $roles === ['reference_audio', 'reference_image'];
+    }
+
     private static function videoCapabilityDocText(array $meta, array $schema = []): string
     {
         $parts = [
@@ -2755,6 +2786,9 @@ class MarketVideoRuntimeService
         $contractModes = MarketGenerationMaterials::modes($meta);
         if ($contractModes !== []) return array_values(array_unique(array_column($contractModes, 'method')));
         $isH3 = self::isH3Product($product);
+        if ($isH3 && self::hasImageAndAudioReferenceContent($meta)) {
+            return self::schemaVideoCapabilities($meta)['generation_modes'];
+        }
         $supportsStartEndFrames = self::supportsStartEndFrames($product);
         $cap = self::arrayValue($meta['capabilities'] ?? []);
         $configured = $meta['generation_modes'] ?? $cap['generation_modes'] ?? [];
@@ -3922,7 +3956,7 @@ class MarketVideoRuntimeService
      */
     private static function requiresDurableResultStorage(string $appCode): bool
     {
-        return in_array($appCode, ['aigc_short_drama', 'aigc_product_promo_video', 'aigc_product_video', 'aigc_motion_sync', 'aigc_story_commerce', 'aigc_store_visit', MarketAnimateReplace::APP], true);
+        return in_array($appCode, ['aigc_short_drama', 'aigc_product_promo_video', 'aigc_product_video', 'aigc_sale_video', 'aigc_video_replication', 'aigc_motion_sync', 'aigc_story_commerce', 'aigc_store_visit', MarketAnimateReplace::APP], true);
     }
 
     private static function videos(array $data, int $tenantId, int $userId, bool $forceTransfer = false): array

@@ -276,7 +276,7 @@ class AppDisplayConfigService
             $data['extra'],
             self::recommendationValue($data)
         );
-        return self::withUrls($data);
+        return self::withUrls($data, (string)$default['cover_uri']);
     }
 
     public static function lists(int $tenantId, array $appCodes = []): array
@@ -341,7 +341,10 @@ class AppDisplayConfigService
     {
         $appCode = self::normalizeAppCode($appCode);
         $current = self::detail($tenantId, $appCode);
-        $cover = FileService::setFileUrl((string)($params['cover_uri'] ?? $params['cover_url'] ?? $params['cover'] ?? $current['cover_uri'] ?? ''));
+        $cover = (string)($params['cover_uri'] ?? $params['cover_url'] ?? $params['cover'] ?? $current['cover_uri'] ?? '');
+        if ($cover !== '') {
+            $cover = AppCatalogArtwork::bundledCoverUri($appCode, $cover) ?: FileService::setFileUrl($cover);
+        }
         $extra = self::normalizeDisplayExtra($params, $current);
         // Only a selected tenant material ID may change the dynamic cover.
         $previewId = (int)($current['extra']['cover_preview_id'] ?? 0);
@@ -489,14 +492,21 @@ class AppDisplayConfigService
         return $default === 1 ? 1 : 0;
     }
 
-    private static function withUrls(array $data): array
+    private static function withUrls(array $data, string $defaultCover = ''): array
     {
         $app=(string)($data['app_code']??'');$uri=(string)($data['cover_uri']??'');
         if(in_array($app,['aigc_store_visit','aigc_story_commerce','aigc_product_video','aigc_motion_sync'],true)
             &&($uri===''||in_array(ltrim($uri,'/'),['resource/image/common/menu_generator.png','resource/image/apps/'.$app.'/cover.png','resource/image/apps/'.$app.'/cover-v2.webp','resource/image/apps/'.$app.'/cover.gif'],true)))
             $data['cover_uri']='resource/image/apps/'.$app.'/cover-v3.gif';
 
-        $data['cover_url'] = !empty($data['cover_uri']) ? FileService::getFileUrl((string)$data['cover_uri']) : '';
+        $bundledCover = AppCatalogArtwork::bundledCoverUrl($app, $uri !== '' ? $uri : $defaultCover);
+        if ($bundledCover !== '') {
+            // Keep the editable asset path stable. Only the URL used for display varies with the file.
+            $data['cover_uri'] = ltrim(explode('?', $bundledCover, 2)[0], '/');
+            $data['cover_url'] = FileService::format(request()->domain(), $bundledCover);
+        } else {
+            $data['cover_url'] = !empty($data['cover_uri']) ? FileService::getFileUrl((string)$data['cover_uri']) : '';
+        }
         $tenantId = (int)($data['tenant_id'] ?? 0);
         $previewId = (int)($data['extra']['cover_preview_id'] ?? 0);
         $file = $previewId && $tenantId ? self::previewFile($tenantId, $previewId) : null;

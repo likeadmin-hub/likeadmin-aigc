@@ -34,10 +34,15 @@ class AppController extends BaseAdminController
         foreach ($apps as &$app) {
             $tenantApp = $tenantApps[$app['code']] ?? [];
             $display = $displayMap[$app['code']] ?? [];
+            $configuredCover = ($display['cover_uri'] ?? '') ?: ($app['cover'] ?? '');
+            $bundledCover = AppCatalogArtwork::bundledCoverUrl($app['code'], (string)$configuredCover);
+            if ($bundledCover !== '') {
+                $display['cover_url'] = $bundledCover;
+            }
             $app['display_config'] = $display;
             $app['market_profile'] = AppDisplayConfigService::marketProfile((string)$app['code']);
             $app['catalog_cover_url'] = $artwork[$app['code']] ?? '';
-            $app['cover_url'] = self::firstImageUrl(
+            $app['cover_url'] = $bundledCover ?: self::firstImageUrl(
                 $display['cover_url'] ?? '',
                 $display['cover_uri'] ?? '',
                 $app['catalog_cover_url'],

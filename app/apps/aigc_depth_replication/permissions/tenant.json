@@ -1,0 +1,17 @@
+[
+  {
+    "api_path": "app.aigc_depth_replication.config/detail",
+    "api_method": "GET",
+    "permission_key": "aigc_depth_replication:config:detail"
+  },
+  {
+    "api_path": "app.aigc_depth_replication.config/setup",
+    "api_method": "POST",
+    "permission_key": "aigc_depth_replication:config:setup"
+  },
+  {
+    "api_path": "app.aigc_depth_replication.job/lists",
+    "api_method": "GET",
+    "permission_key": "aigc_depth_replication:job:lists"
+  }
+]

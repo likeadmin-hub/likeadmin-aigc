@@ -1,0 +1,98 @@
+{
+    "schema_version": 1,
+    "app_code": "aigc_video_replication",
+    "key": "builtin-c8d07960e49335a3dad45419",
+    "version": 2,
+    "title": "礼帽展示（中文版）",
+    "status": 1,
+    "sort": 0,
+    "deleted": false,
+    "model_identity": {
+        "resource_type": "model",
+        "source_code": "likeadmin_api",
+        "upstream_resource_key": "model:bytedance-seedance-2-mini:official",
+        "upstream_app_code": ""
+    },
+    "configuration": {
+        "market_region": "CN(中国)",
+        "images": [
+            {
+                "uri": "uploads/images/20261111/202611111336228ef362895.jpg",
+                "storage_scope": "platform",
+                "storage_engine": "qcloud",
+                "storage_domain": "https://aigclikeadmin-1304073946.cos.ap-guangzhou.myqcloud.com",
+                "name": "huaban-49072003.jpg",
+                "reference_slot_id": "pv_3aab971065f6855d8c0533a6",
+                "mention_name": "图片1",
+                "type": "image"
+            }
+        ],
+        "reference_video": {
+            "uri": "uploads/video/20261111/20261111093728864137151.mp4",
+            "storage_scope": "platform",
+            "storage_engine": "qcloud",
+            "storage_domain": "https://aigclikeadmin-1304073946.cos.ap-guangzhou.myqcloud.com",
+            "duration": 10,
+            "width": 480,
+            "height": 854,
+            "name": "_b10dad57-7dd0-4074-a1a9-dd56944e070f_import_file.mp4",
+            "type": "video",
+            "mime_type": "video/mp4",
+            "file_size": 6059826,
+            "format": "mp4"
+        },
+        "prompt": "借鉴参考视频的“手持展示+口播互动”节奏，将场景设定在服装店或衣帽间。模特通过手持驼色礼帽进行近距离细节展示，配合流畅的运镜强调黑色缎带蝴蝶结的设计感与羊毛材质的质感，展现优雅复古风格。 0–2 秒　【中景】明亮整洁的精品店背景（衣架虚化）。一位身穿米白色高领毛衣搭配深色西装裤的女性，面带微笑面对镜头。她双手举起这顶驼色宽檐羊毛帽向观众展示。字幕/口播：“像这种很有质感的帽子”。 2–4 秒　【特写推近】镜头快速推进聚焦于帽子上的黑色缎面蝴蝶结。模特的指尖轻轻划过丝带表面，展示其光泽感和立体造型。字幕/口播：“这个黑色的蝴蝶结设计”。 4–6 秒　【近景】切回模特半身画面。她将帽子稍微倾斜，让光线打在驼色的帽身上，展示细腻的毛呢纹理。字幕/口播：“平时出街或者约会戴吗？”。 6–8 秒　【动态展示】模特单手握住帽檐边缘，另一只手整理飘垂下来的长丝带，动作轻盈优雅。字幕/口播：“说实话是不是超显气质呀”。 8–10 秒　【全景/定格】模特将帽子端正地拿在胸前，对着镜子方向自信微笑，完成整体造型的最终展示。字幕/口播：“就是没那个必要去撞款啦”。",
+        "language": "中文",
+        "video_selection": {
+            "model_id": "",
+            "quality": "720p",
+            "duration": 10,
+            "ratio": "9:16"
+        },
+        "clip": {
+            "start": 0,
+            "end": 10
+        }
+    },
+    "media": {
+        "uri": "uploads/aigc_video/20261125/20261125230139105706761.mp4",
+        "storage_scope": "platform",
+        "storage_engine": "qcloud",
+        "storage_domain": "https://aigclikeadmin-1304073946.cos.ap-guangzhou.myqcloud.com",
+        "name": "20261125230139105706761.mp4",
+        "type": "video"
+    },
+    "retained_media": [
+        {
+            "uri": "uploads/images/20261111/202611111336228ef362895.jpg",
+            "storage_scope": "platform",
+            "storage_engine": "qcloud",
+            "storage_domain": "https://aigclikeadmin-1304073946.cos.ap-guangzhou.myqcloud.com",
+            "name": "huaban-49072003.jpg",
+            "reference_slot_id": "pv_3aab971065f6855d8c0533a6",
+            "mention_name": "图片1",
+            "type": "image"
+        },
+        {
+            "uri": "uploads/video/20261111/20261111093728864137151.mp4",
+            "storage_scope": "platform",
+            "storage_engine": "qcloud",
+            "storage_domain": "https://aigclikeadmin-1304073946.cos.ap-guangzhou.myqcloud.com",
+            "duration": 10,
+            "width": 480,
+            "height": 854,
+            "name": "_b10dad57-7dd0-4074-a1a9-dd56944e070f_import_file.mp4",
+            "type": "video",
+            "mime_type": "video/mp4",
+            "file_size": 6059826
+        },
+        {
+            "uri": "uploads/aigc_video/20261125/20261125230139105706761.mp4",
+            "storage_scope": "platform",
+            "storage_engine": "qcloud",
+            "storage_domain": "https://aigclikeadmin-1304073946.cos.ap-guangzhou.myqcloud.com",
+            "name": "20261125230139105706761.mp4",
+            "type": "video"
+        }
+    ]
+}

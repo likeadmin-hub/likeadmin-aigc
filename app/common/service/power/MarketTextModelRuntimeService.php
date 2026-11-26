@@ -156,7 +156,7 @@ class MarketTextModelRuntimeService
         if ((($params['source_app_code'] ?? '') === 'aigc_story_commerce' && !empty($params['_story_commerce_preserve_uncertain'])) || (($params['source_app_code'] ?? '') === 'aigc_store_visit' && !empty($params['_store_visit_preserve_uncertain']))) {
             return \app\common\service\ai\MarketVideoSubmissionService::ambiguous($message);
         }
-        if (($params['source_app_code'] ?? '') === 'aigc_product_video' && !empty($params['_product_video_preserve_uncertain'])) {
+        if (in_array($params['source_app_code'] ?? '', ['aigc_product_video', 'aigc_sale_video', 'aigc_video_replication'], true) && !empty($params['_product_video_preserve_uncertain'])) {
             return \app\common\service\ai\MarketVideoSubmissionService::ambiguous($message);
         }
         return $tenantAdmin&&($action==='decoration_agent_text'||$operatorProbe)

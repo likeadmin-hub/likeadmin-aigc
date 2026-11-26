@@ -5,6 +5,9 @@ final class ProductVideoPrompts
 {
     public static function templates(): array
     {
+        if (ProductVideoPolicy::app() === ProductVideoPolicy::SALE) {
+            return [['code'=>'ugc', 'name'=>'UGC 种草', 'description'=>'一人出镜，边讲边演示商品', 'instruction'=>SaleVideoWorkflow::UGC, 'version'=>'1.1.0']];
+        }
         $templates = [
             ['code'=>'detail','name'=>'细节展示','description'=>'展示外观、材质与局部细节','instruction'=>'先展示完整商品，再呈现有辨识度的材质和细节，最后回到完整商品。'],
             ['code'=>'use','name'=>'使用演示','description'=>'把真实用途表达清楚','instruction'=>'围绕已确认的使用方式组织镜头，不演示未经证实的性能和效果。'],
@@ -23,6 +26,9 @@ final class ProductVideoPrompts
 额外生成用视频和音频只有角色信息时，不猜测它们的内容。保留用户素材引用名称及 @ 引用，不新增或改名；展示重点的 source_slots 只能引用输入 image_slots 中对应商品图。
 TEXT;
         if(in_array($action,['reference','chapters'],true))$truth='额外生成用视频和音频只有角色信息时，不猜测它们的内容，保留用户素材引用即可。商品事实以用户商品图片及已确认 product_info 为准，不引入其他商品的品牌、价格、功效和包装。不能确认的事实留空。';
+        if (ProductVideoPolicy::app() === ProductVideoPolicy::SALE && $action === 'write') {
+            return $base.$truth.SaleVideoWorkflow::DIRECTION.SaleVideoWorkflow::UGC.SaleVideoWorkflow::WRITE;
+        }
         return $base.$truth.match($action){
             'product'=>self::productStructure().'只输出商品分析结构，不输出镜头、视频描述或任何图片生成任务。',
             'reference'=>'分析参考视频的实际画面与声音，输出 {"summary":"表现方式概述","style":"镜头与节奏","shots":[{"start":0,"end":3,"description":"观察到的镜头"}],"audio":"实际可听内容或无法确认"}。这是参考片观察，不是新商品事实。',

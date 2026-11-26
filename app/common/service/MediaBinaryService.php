@@ -38,7 +38,8 @@ final class MediaBinaryService
 
     private static function standard(string $name, bool $includeFixed = true): array
     {
-        $paths = [root_path() . 'runtime/bin/' . $name];
+        $siteBin = root_path() . 'runtime/bin/';
+        $paths = [$siteBin . $name, $siteBin . 'ffmpeg/bin/' . $name];
         foreach (explode(PATH_SEPARATOR, (string)getenv('PATH')) as $dir) {
             if ($dir !== '' && (str_starts_with($dir, '/') || preg_match('~^[A-Za-z]:[\\\\/]~', $dir))) {
                 $paths[] = rtrim($dir, '/\\') . '/' . $name;

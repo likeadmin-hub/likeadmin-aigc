@@ -5,18 +5,19 @@ use app\common\service\power\MarketVideoModelRuntimeService;
 use app\common\service\power\MarketCatalogReadScope;
 use app\common\service\power\MarketHealth;
 use app\common\service\power\MarketVideoAppRuntimeService;
+use app\common\service\power\MarketVideoAudioOutput;
 use InvalidArgumentException;
 use think\facade\Cache;
 
 final class StudioVideoCatalogService
 {
     private static array $cache=[];
-    public static function models(int $tenant,bool $legacy=false,string $mode='both',?array $allowedIds=null,bool $summary=false): array
+    public static function models(int $tenant,bool $legacy=false,string $mode='both',?array $allowedIds=null,bool $summary=false,bool $requireAudio=false): array
     {
         // Share market reads only while discovering callable specifications.
         // Real quotes and admissions run after this scope has been released.
-        return MarketCatalogReadScope::run(static function () use ($tenant, $legacy, $mode, $allowedIds, $summary): array {
-            $models = self::buildModels($tenant, $legacy, $mode, $allowedIds, $summary);
+        return MarketCatalogReadScope::run(static function () use ($tenant, $legacy, $mode, $allowedIds, $summary, $requireAudio): array {
+            $models = self::buildModels($tenant, $legacy, $mode, $allowedIds, $summary, $requireAudio);
             foreach ($models as &$model) {
                 $model['market_product_id'] = (int)($model['specs'][0]['market_product_id'] ?? 0);
             }
@@ -24,9 +25,10 @@ final class StudioVideoCatalogService
             return MarketHealth::attachOptions($models);
         });
     }
-    private static function buildModels(int $tenant,bool $legacy,string $mode,?array $allowedIds,bool $summary): array
+    private static function buildModels(int $tenant,bool $legacy,string $mode,?array $allowedIds,bool $summary,bool $requireAudio): array
     {
         $subset='';if($allowedIds!==null){$allowedIds=array_values(array_unique(array_map('strval',$allowedIds)));if(!$allowedIds)return [];sort($allowedIds);$subset=':'.hash('sha256',json_encode($allowedIds,JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES|JSON_THROW_ON_ERROR));}
+        if ($requireAudio) $subset .= ':audio';
         $revision = \app\common\service\power\TenantSupplyMarkup::settings($tenant)['revision'];
         $cacheKey=$tenant.':'.$revision.':'.(int)$legacy.':'.$mode.$subset.($summary?':summary':'');if(isset(self::$cache[$cacheKey]))return self::$cache[$cacheKey];
         $sharedKey='studio_callable_video_models_v4:'.$tenant.':'.$revision.':'.$mode.$subset.($summary?':summary':'');if(!$legacy){try{$cached=Cache::get($sharedKey);if(is_array($cached))return self::$cache[$cacheKey]=$cached;}catch(\Throwable){}}
@@ -34,6 +36,11 @@ final class StudioVideoCatalogService
         foreach($options['channels']??[] as $model){
             if($allowedIds!==null&&!in_array((string)$model['id'],$allowedIds,true))continue;
             if((int)($model['status']??1)!==1||(int)($model['max_reference_images']??0)<1)continue;
+            if ($requireAudio) {
+                if (empty($model['supports_audio_output'])) continue;
+                $model['specs'] = array_filter($model['specs'] ?? [], static fn(array $spec) =>
+                    MarketVideoAudioOutput::allowsSound($spec['provider_params_json'] ?? []));
+            }
             $modes=(array)($model['generation_modes']??$model['input_modes']??[]);$method='';
             if (!empty($model['material_modes'])) $method=\app\common\service\power\MarketGenerationMaterials::singleImageMethod($model);
             else foreach(['image_reference','omni_reference','image_to_video'] as $m)if(in_array($m,$modes,true)){$method=$m;break;}
@@ -50,6 +57,7 @@ final class StudioVideoCatalogService
                         $unit=$s['usage_unit']??'';$quantity=in_array($unit,['input_second','output_second','second'],true)?$duration:1;
                         $entry=['quality'=>(string)$s['quality'],'ratio'=>$ratio,'duration'=>$duration,'generation_method'=>$method,'market_product_id'=>(int)$model['market_product_id'],'market_sku_id'=>(int)$s['market_sku_id'],'resource_type'=>$model['resource_type'],'user_charge_points'=>round((float)$s['tenant_unit_price']*$quantity/max(1,(float)($s['usage_unit_size']??1)),4)];
                         $input=(string)($s['input_mode']??'');
+                        if ($requireAudio) $entry['require_generated_audio'] = true;
                         if($legacy){$specs[]=$entry;if($hasFrames&&($input===''||in_array($input,['start_end','image_reference'],true)))$frameSpecs[]=array_replace($entry,['generation_method'=>'start_end']);continue;}
                         // A pricing SKU may be labeled text_to_video while the shared
                         // adapter permits image reference and start/end requests. Let

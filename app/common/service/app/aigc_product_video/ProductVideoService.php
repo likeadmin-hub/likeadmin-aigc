@@ -11,11 +11,12 @@ use think\facade\Db;
 
 final class ProductVideoService
 {
-    public static function table(string $suffix){return Db::name(ProductVideoPolicy::APP.'_'.$suffix);}
+    public static function table(string $suffix){return Db::name(ProductVideoPolicy::app().'_'.$suffix);}
     public static function available(int $tenant,int $user=0): void
     {
-        if(!AppAccessService::tenantCanUse($tenant,ProductVideoPolicy::APP)||!(int)(self::settings($tenant)['status']))throw new InvalidArgumentException('商品视频应用当前不可用');
-        if($user>0&&!\app\common\service\membership\MembershipService::userCanUseApp($tenant,$user,ProductVideoPolicy::APP))throw new InvalidArgumentException('当前套餐尚未开放商品视频，请先开通应用');
+        $name = ProductVideoPolicy::name();
+        if(!AppAccessService::tenantCanUse($tenant,ProductVideoPolicy::app())||!(int)(self::settings($tenant)['status']))throw new InvalidArgumentException($name.'应用当前不可用');
+        if($user>0&&!\app\common\service\membership\MembershipService::userCanUseApp($tenant,$user,ProductVideoPolicy::app()))throw new InvalidArgumentException('当前套餐尚未开放'.$name.'，请先开通应用');
     }
     public static function settings(int $tenant): array
     {
@@ -24,7 +25,7 @@ final class ProductVideoService
     }
     public static function setup(int $tenant,array $p): array
     {
-        AppDisplayConfigService::saveFromConfigPayload($tenant,ProductVideoPolicy::APP,$p);
+        AppDisplayConfigService::saveFromConfigPayload($tenant,ProductVideoPolicy::app(),$p);
         $data=['status'=>empty($p['status'])?0:1];
         foreach(['analysis_model_id','planning_model_id','default_video_model_id'] as $key)$data[$key]=ProductVideoPolicy::text($p[$key]??'',100);
         $values=['body_json'=>ProductVideoPolicy::encode($data),'update_time'=>time()];$q=self::table('config')->where('tenant_id',$tenant);
@@ -33,9 +34,9 @@ final class ProductVideoService
     }
     public static function config(int $tenant): array
     {
-        return MarketCatalogReadScope::run(static fn(): array => AppDisplayConfigService::appendToConfig($tenant,ProductVideoPolicy::APP,self::settings($tenant)+[
+        return MarketCatalogReadScope::run(static fn(): array => AppDisplayConfigService::appendToConfig($tenant,ProductVideoPolicy::app(),self::settings($tenant)+[
             'templates'=>array_map(static function($t){unset($t['instruction']);return $t;},ProductVideoPrompts::templates()),
-            'max_images'=>15,'reference_max_seconds'=>60,'reference_max_mb'=>32,
+            'max_images'=>ProductVideoPolicy::replicating()?9:(ProductVideoPolicy::app() === ProductVideoPolicy::SALE ? 10 : 15),'reference_max_seconds'=>ProductVideoPolicy::replicating()?3600:60,'reference_max_mb'=>ProductVideoPolicy::replicating()?100:32,
             'analysis_models'=>MarketTextModelRuntimeService::mediaOptions($tenant,true),
             'planning_models'=>MarketTextModelRuntimeService::mediaOptions($tenant,false),
         ]));
@@ -54,7 +55,7 @@ final class ProductVideoService
     }
     public static function projectDto(array $row): array
     {
-        $body=array_diff_key(ProductVideoPolicy::json($row['body_json']),array_flip(['storyboard','generate_storyboard','image_selection']));
+        $body=array_diff_key(ProductVideoPolicy::json($row['body_json']),array_flip(['storyboard','generate_storyboard','image_selection','render_clip_uri']));
         return ['id'=>(int)$row['id'],'title'=>$row['title'],'revision'=>(int)$row['revision'],'body'=>self::publicBody($body,(int)$row['tenant_id']),
             'plan_fresh'=>($body['plan']['input_key']??'')===ProductVideoPolicy::planKey($body),
             'update_time'=>(int)$row['update_time']];
@@ -79,9 +80,12 @@ final class ProductVideoService
         try { $body['images']=StudioMediaInputService::validateImages($tenant,$user,$body['images'],15); }
         catch(\RuntimeException $e) { throw new InvalidArgumentException('商品图片不可用，请重新添加商品素材',0,$e); }
         $body=ProductVideoMaterials::normalize($tenant,$user,$body);
-        if($body['reference_video'])$body['reference_video']=StudioMediaInputService::validateVideo($tenant,$user,(string)($body['reference_video']['uri']??''));
+        if ($body['reference_video']) {
+            $body['reference_video'] = StudioMediaInputService::validateVideo($tenant, $user, (string)($body['reference_video']['uri'] ?? ''), ProductVideoPolicy::replicating() ? 3600 : 60);
+            if (ProductVideoPolicy::replicating()) VideoReplicationWorkflow::checkSegment($body);
+        }
         return Db::transaction(static function()use($tenant,$user,$p,$body){
-            $id=(int)($p['id']??0);$title=ProductVideoPolicy::text($p['title']??'商品视频',100);
+            $id=(int)($p['id']??0);$title=ProductVideoPolicy::text($p['title']??ProductVideoPolicy::name(),100);
             if($id){$old=self::owned($tenant,$user,$id,true);if((int)($p['revision']??0)!==(int)$old['revision'])throw new InvalidArgumentException('草稿已更新，请刷新后继续');$revision=(int)$old['revision']+1;self::table('project')->where('id',$id)->update(['body_json'=>ProductVideoPolicy::encode($body),'title'=>$title,'revision'=>$revision,'update_time'=>time()]);}
             else $id=self::table('project')->insertGetId(['tenant_id'=>$tenant,'user_id'=>$user,'title'=>$title,'revision'=>1,'body_json'=>ProductVideoPolicy::encode($body),'create_time'=>time(),'update_time'=>time()]);
             return self::projectDto(self::owned($tenant,$user,$id));
@@ -91,7 +95,7 @@ final class ProductVideoService
     {
         $job=ProductVideoJobs::owned($tenant,$user,$jobId);$request=ProductVideoPolicy::json($job['request_json']);$body=(array)($request['snapshot']??[]);
         if($includeResult)$body=self::applyResult($body,$job);
-        return self::save($tenant,$user,['title'=>'商品视频 · 再次编辑','body'=>$body]);
+        return self::save($tenant,$user,['title'=>ProductVideoPolicy::name().' · 再次编辑','body'=>$body]);
     }
     private static function applyResult(array $body,array $job): array
     {
@@ -100,7 +104,11 @@ final class ProductVideoService
         if(in_array($job['action'],['analysis','plan'],true)){
             $productInfo=ProductVideoPolicy::text($result['product_info']??'',3000);
             if($productInfo!==''&&($job['action']==='analysis'||empty($body['product_info'])))$body['product_info']=$productInfo;
-            $plan=ProductVideoPolicy::plan($result,(int)$body['video_selection']['duration']);
+            $duration = (int)$body['video_selection']['duration'];
+            if (ProductVideoPolicy::replicating()) {
+                $duration = ProductVideoPolicy::json($job['request_json'])['duration'] ?? $duration;
+            }
+            $plan=ProductVideoPolicy::plan($result,$duration);
             $plan['video_prompt']=ProductVideoPolicy::planDescription($plan);
             $body['prompt']=$plan['video_prompt'];
             $body['prompt_review_images']=array_column($body['images'],'uri');
@@ -121,6 +129,13 @@ final class ProductVideoService
         return Db::transaction(static function()use($tenant,$user,$p){
             $job=ProductVideoJobs::owned($tenant,$user,(int)($p['job_id']??0));$project=self::owned($tenant,$user,(int)$job['project_id'],true);
             if(!in_array($job['status'],['success','partial'],true))throw new InvalidArgumentException('任务完成后才能使用结果');
+            // A second tab or a replay of the same settled script can acknowledge the first adoption.
+            if (ProductVideoPolicy::app() === ProductVideoPolicy::SALE && $job['action'] === 'write'
+                && (int)$project['revision'] === (int)$job['project_revision'] + 1
+                && (int)($p['revision'] ?? 0) === (int)$job['project_revision']) {
+                $current = ProductVideoPolicy::json($project['body_json']);
+                if (self::applyResult($current, $job) === $current) return self::projectDto($project);
+            }
             if((int)$project['revision']!==(int)($p['revision']??0)||(int)$job['project_revision']!==(int)$project['revision'])throw new InvalidArgumentException('草稿已修改，结果已保留，请查看后手动合并');
             $body=self::applyResult(ProductVideoPolicy::json($project['body_json']),$job);
             self::table('project')->where('id',$project['id'])->update(['revision'=>(int)$project['revision']+1,'body_json'=>ProductVideoPolicy::encode($body),'update_time'=>time()]);

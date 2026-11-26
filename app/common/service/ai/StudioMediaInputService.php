@@ -4,6 +4,7 @@ declare(strict_types=1);
 namespace app\common\service\ai;
 
 use app\common\enum\FileEnum;
+use app\common\service\app\aigc_video\AigcVideoAssetService;
 use app\common\service\FileService;
 use app\common\service\open_platform\OpenCallContext;
 use app\common\service\open_platform\OpenSafeHttp;
@@ -182,6 +183,12 @@ final class StudioMediaInputService
         return ['uri'=>$uri,'url'=>$url,'duration'=>(float)$facts['duration'],'file_size'=>(int)$facts['file_size'],'name'=>(string)$file['name'],'tenant_id'=>$tenant,'user_id'=>$user,'file_id'=>(int)$file['id']]+$storage;
     }
 
+    /** Copy an owned managed video into a private worker directory, without re-encoding. */
+    public static function copyOwnedVideo(int $tenant, int $user, string $uri, string $target): void
+    {
+        self::materialize(self::canonicalUri($uri), $target, $tenant, $user);
+    }
+
     public static function videoInput(array $asset): string
     {
         $fresh = self::validateVideo((int)$asset['tenant_id'], (int)$asset['user_id'], (string)$asset['uri']);
@@ -189,20 +196,79 @@ final class StudioMediaInputService
         return self::localVideoInput(self::localPath($fresh['uri']));
     }
 
+    public static function videoClipInput(array $asset): string
+    {
+        $tenant = (int)$asset['tenant_id'];
+        $user = (int)$asset['user_id'];
+        $fresh = self::validateVideo($tenant, $user, $asset['uri'], 3600);
+        $start = (float)$asset['clip']['start'];
+        $length = (float)$asset['clip']['end'] - $start;
+        if (!is_finite($start) || !is_finite($length) || $start < 0 || $length < 5 || $length > 30
+            || $start + $length > $fresh['duration'] + 0.01 || $fresh['file_size'] > 104857600) {
+            throw new InvalidArgumentException('请选择有效的 5～30 秒视频片段');
+        }
+        if ($fresh['storage_engine'] === 'local') return self::localVideoInput(self::localPath($fresh['uri']), $start, $length);
+        $workspace = self::workspace();
+        try {
+            $path = $workspace.'/reference.mp4';
+            self::materialize($fresh['uri'], $path, $tenant, $user);
+            return self::localVideoInput($path, $start, $length);
+        } finally { self::cleanup($workspace); }
+    }
+
+    /** Store a seek-accurate render input at source quality, independently of the small analysis proxy. */
+    public static function storeVideoSegment(int $tenant, int $user, string $uri, float $start, float $end): string
+    {
+        $source = self::validateVideo($tenant, $user, $uri, 3600);
+        $length = round($end - $start, 3);
+        if (!is_finite($start) || !is_finite($length) || $start < 0 || $length < 5 || $length > 30
+            || $end > $source['duration'] + 0.01 || $source['file_size'] > 104857600) {
+            throw new InvalidArgumentException('请选择有效的 5～30 秒视频片段');
+        }
+        if ($start === 0.0 && $end === (float)$source['duration'] && strtolower(pathinfo($uri, PATHINFO_EXTENSION)) === 'mp4') {
+            return $uri;
+        }
+        $ffmpeg = self::binary('ffmpeg');
+        $workspace = self::workspace();
+        try {
+            if ($source['storage_engine'] === 'local') {
+                $input = self::localPath($uri);
+            } else {
+                $input = $workspace.'/source.mp4';
+                self::materialize($uri, $input, $tenant, $user);
+            }
+            $output = $workspace.'/segment.mp4';
+            // Fit whole frames to the selected duration (e.g. 29.97 fps would encode 15 s as 15.015 s).
+            $filters = "fps=max(1\\,round(source_fps*$length))/$length,pad=ceil(iw/2)*2:ceil(ih/2)*2";
+            self::run([$ffmpeg, '-v', 'error', '-protocol_whitelist', 'file,pipe',
+                '-ss', (string)$start, '-i', $input, '-t', (string)$length, '-map', '0:v:0', '-map', '0:a:0?',
+                '-vf', $filters, '-c:v', 'libx264', '-pix_fmt', 'yuv420p',
+                '-preset', 'veryfast', '-crf', '18', '-c:a', 'aac', '-movflags', '+faststart', $output], 120);
+            $facts = self::probe($output);
+            if (abs($facts['duration'] - $length) > 0.25 || ($source['has_audio'] && !$facts['has_audio'])) {
+                throw new RuntimeException('参考片段裁剪失败，请重新选择片段');
+            }
+            $storage = StorageConfigService::getStoredFileConfig($tenant, $source['storage_scope'], $source['storage_engine']);
+            return AigcVideoAssetService::persistGeneratedVideoFile($output, $tenant, $user, $storage)['uri'];
+        } finally {
+            self::cleanup($workspace);
+        }
+    }
+
     /** Keep local uploads inside the video-understanding API's encoded 10 MB limit. */
-    private static function localVideoInput(string $path): string
+    private static function localVideoInput(string $path, float $start = 0, ?float $length = null): string
     {
         $workspace = self::workspace();
         try {
             $source = self::probe($path);
-            if ($source['duration'] > 60.1) throw new RuntimeException('参考视频请控制在 60 秒以内');
+            if ($length === null && $source['duration'] > 60.1) throw new RuntimeException('参考视频请控制在 60 秒以内');
             $output = $workspace.'/analysis.mp4';
-            self::run([self::binary('ffmpeg'), '-hide_banner', '-loglevel', 'error', '-y', '-protocol_whitelist', 'file,pipe', '-i', $path,
-                '-map', '0:v:0', '-map', '0:a:0?', '-vf', 'scale=640:640:force_original_aspect_ratio=decrease:force_divisible_by=2',
+            self::run([self::binary('ffmpeg'), '-hide_banner', '-loglevel', 'error', '-y', '-protocol_whitelist', 'file,pipe', ...($length === null ? [] : ['-ss', (string)$start]), '-i', $path,
+                ...($length === null ? [] : ['-t', (string)$length]), '-map', '0:v:0', '-map', '0:a:0?', '-vf', 'scale=640:640:force_original_aspect_ratio=decrease:force_divisible_by=2',
                 '-c:v', 'libx264', '-preset', 'veryfast', '-b:v', '600k', '-maxrate', '650k', '-bufsize', '1300k', '-r', '12',
                 '-c:a', 'aac', '-b:a', '48k', '-ac', '1', '-movflags', '+faststart', $output], 120);
             $normalized = self::probe($output);
-            if (abs($normalized['duration']-$source['duration']) > 0.25 || ($source['has_audio'] && !$normalized['has_audio'])) {
+            if (abs($normalized['duration']-($length ?? $source['duration'])) > 0.25 || ($source['has_audio'] && !$normalized['has_audio'])) {
                 throw new RuntimeException('参考视频转码未完成，请重新上传');
             }
             $encoded = base64_encode(file_get_contents($output));
@@ -239,7 +305,7 @@ final class StudioMediaInputService
     {
         if (!$row || (int)($row['tenant_id'] ?? 0) !== $tenant || (int)($row['source_id'] ?? 0) !== $user
             || (int)($row['source'] ?? -1) !== FileEnum::SOURCE_USER || (int)($row['type'] ?? 0) !== $type
-            || (string)($row['uri'] ?? '') !== $uri || !empty($row['delete_time'])) throw new RuntimeException('素材不存在或不属于当前用户');
+            || (string)($row['uri'] ?? '') !== $uri || !empty($row['delete_time'])) throw new StudioMediaOwnershipException('素材不存在或不属于当前用户');
     }
 
     private static function storage(array $row, int $tenant): array
@@ -385,7 +451,7 @@ final class StudioMediaInputService
         $configured = getenv('STUDIO_MEDIA_' . strtoupper($name)) ?: getenv('MICRO_VIDEO_' . strtoupper($name));
         $binary = \app\common\service\MediaBinaryService::resolve($name, $configured ? [$configured] : []);
         if ($binary !== '') return $binary;
-        throw new RuntimeException('未找到视频处理程序：' . $name);
+        throw new MediaToolUnavailable($name);
     }
 
     private static function run(array $command, int $timeout): string
