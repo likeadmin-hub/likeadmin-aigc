@@ -22,6 +22,21 @@ $insert = static fn($owner, $type, $name, $source = FileEnum::SOURCE_ADMIN) =>
 
 Db::startTrans();
 try {
+    foreach (['aigc_sale_video', 'aigc_depth_replication', 'aigc_video_replication'] as $code) {
+        $uri = 'resource/image/apps/'.$code.'/cover.webp';
+        $source = dirname(__DIR__).'/app/apps/'.$code.'/assets/local/cover.webp';
+        $suffix = '/'.$uri.'?v='.substr(hash_file('sha256', $source), 0, 12);
+        $stock = $code === 'aigc_video_replication'
+            ? 'resource/image/apps/aigc_short_drama/style-covers/cinematic.webp' : $uri;
+        $record = Display::save($tenant, $code, ['cover_uri'=>$stock]);
+        checkPreview($record['cover_uri'] === $uri && str_ends_with($record['cover_url'], $suffix), $code.' uses the shipped artwork');
+        checkPreview(Display::map($tenant, [$code])[$code]['cover_url'] === $record['cover_url'], $code.' serves the same PC and admin URL');
+        Display::save($tenant, $code, ['cover_url'=>$record['cover_url']]);
+        checkPreview(Db::name('tenant_app_config')->where(['tenant_id'=>$tenant,'app_code'=>$code])->value('cover_uri') === $uri, $code.' stores a stable URI');
+        $custom = 'https://example.test/tenant/custom.webp?v=123456789abc';
+        $record = Display::save($tenant, $code, ['cover_uri'=>$custom]);
+        checkPreview($record['cover_url'] === $custom, $code.' preserves custom artwork');
+    }
     $cover = Display::detail($tenant, $app)['cover_uri'];
     foreach (['preview.mp4'=>'video', 'preview.gif'=>'image', 'preview.webp'=>'image'] as $name => $kind) {
         $type = $kind === 'video' ? FileEnum::VIDEO_TYPE : FileEnum::IMAGE_TYPE;

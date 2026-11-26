@@ -22,7 +22,7 @@ final class AppCatalogArtwork
         'aigc_video_replication' => ['resource/image/apps/aigc_short_drama/style-covers/cinematic.webp'],
     ];
 
-    public static function bundledCoverUrl(string $code, string $configuredUri): string
+    public static function bundledCoverUri(string $code, string $configuredUri): string
     {
         if (!isset(self::BUNDLED_VIDEO_COVERS[$code])) {
             return '';
@@ -33,7 +33,17 @@ final class AppCatalogArtwork
         if (str_starts_with($configuredUri, $site)) {
             $configuredUri = substr($configuredUri, strlen($site));
         }
-        if (!in_array(ltrim($configuredUri, '/'), $defaults, true)) {
+        $configuredUri = ltrim($configuredUri, '/');
+        if (preg_match('~^' . preg_quote($uri, '~') . '\?v=[0-9a-f]{12}$~D', $configuredUri)) {
+            return $uri;
+        }
+        return in_array($configuredUri, $defaults, true) ? $uri : '';
+    }
+
+    public static function bundledCoverUrl(string $code, string $configuredUri): string
+    {
+        $uri = self::bundledCoverUri($code, $configuredUri);
+        if ($uri === '') {
             return '';
         }
         $file = public_path() . $uri;
