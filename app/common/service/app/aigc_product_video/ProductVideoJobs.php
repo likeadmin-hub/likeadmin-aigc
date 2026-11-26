@@ -16,7 +16,28 @@ final class ProductVideoJobs
     {
         $row = self::owned($tenant, $user, $id);
         if (ProductVideoPolicy::replicating()) $row = VideoReplicationWorkflow::restoreSettledPlan($row);
+        if (ProductVideoPolicy::app() === ProductVideoPolicy::SALE && $row['action'] === 'write'
+            && $row['status'] === 'failed' && $row['error'] === '未返回有效视频描述') {
+            $row = self::restoreSettledText($row);
+        }
         return self::dto($row);
+    }
+    /** Reparse the saved reply without submitting a model call or changing its settlement. */
+    public static function restoreSettledText(array $job): array
+    {
+        if ($job['billing_status'] !== 'settled') return $job;
+        $receipt = ProductVideoPolicy::json($job['receipt_json']);
+        if (empty($receipt['content'])) return $job;
+        try {
+            $result = ProductVideoWorker::parse($job, $receipt);
+        } catch (InvalidArgumentException|\JsonException|\RuntimeException $e) {
+            return $job;
+        }
+        $owner = ['id'=>$job['id'], 'tenant_id'=>$job['tenant_id'], 'user_id'=>$job['user_id'], 'delete_time'=>0];
+        self::table()->where($owner + [
+            'status'=>'failed', 'error'=>$job['error'], 'billing_status'=>'settled', 'consumption_id'=>$job['consumption_id'],
+        ])->update(['result_json'=>ProductVideoPolicy::encode($result), 'status'=>'success', 'error'=>'', 'update_time'=>time()]);
+        return self::owned((int)$job['tenant_id'], (int)$job['user_id'], (int)$job['id']);
     }
     public static function dto(array $row): array
     {
@@ -34,6 +55,10 @@ final class ProductVideoJobs
         $scriptCost = (float)($request['script_charge_points'] ?? 0);
         $error = $row['error']===''?'':($row['status']==='unknown'?'模型受理或费用待核对，请保留此任务，勿重复提交':'创作未完成，请检查素材、模型或余额后重试');
         if (ProductVideoPolicy::replicating() && VideoReplicationWorkflow::failedTiming($row)) $error = '模型返回的分镜时间与所选参考片段不一致，脚本未能回填。';
+        if (ProductVideoPolicy::app() === ProductVideoPolicy::SALE && $row['action'] === 'write' && $row['status'] === 'failed'
+            && in_array($row['error'], [SaleVideoWorkflow::SCRIPT_FORMAT_ERROR, '未返回有效视频描述'], true)) {
+            $error = SaleVideoWorkflow::SCRIPT_FORMAT_ERROR;
+        }
         return ['id'=>(int)$row['id'],'presentation'=>$presentation,'project_id'=>(int)$row['project_id'],'project_revision'=>(int)$row['project_revision'],'action'=>$row['action'],
             'status'=>$row['status'],'result'=>$result,
             'error'=>$error,

@@ -129,6 +129,13 @@ final class ProductVideoService
         return Db::transaction(static function()use($tenant,$user,$p){
             $job=ProductVideoJobs::owned($tenant,$user,(int)($p['job_id']??0));$project=self::owned($tenant,$user,(int)$job['project_id'],true);
             if(!in_array($job['status'],['success','partial'],true))throw new InvalidArgumentException('任务完成后才能使用结果');
+            // A second tab or a replay of the same settled script can acknowledge the first adoption.
+            if (ProductVideoPolicy::app() === ProductVideoPolicy::SALE && $job['action'] === 'write'
+                && (int)$project['revision'] === (int)$job['project_revision'] + 1
+                && (int)($p['revision'] ?? 0) === (int)$job['project_revision']) {
+                $current = ProductVideoPolicy::json($project['body_json']);
+                if (self::applyResult($current, $job) === $current) return self::projectDto($project);
+            }
             if((int)$project['revision']!==(int)($p['revision']??0)||(int)$job['project_revision']!==(int)$project['revision'])throw new InvalidArgumentException('草稿已修改，结果已保留，请查看后手动合并');
             $body=self::applyResult(ProductVideoPolicy::json($project['body_json']),$job);
             self::table('project')->where('id',$project['id'])->update(['revision'=>(int)$project['revision']+1,'body_json'=>ProductVideoPolicy::encode($body),'update_time'=>time()]);

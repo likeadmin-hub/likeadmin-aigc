@@ -30,19 +30,7 @@ PROMPT;
     /** Finish an already paid analysis if its saved reply passes the current parser. */
     public static function restoreSettledPlan(array $job): array
     {
-        if (!self::failedTiming($job) || $job['billing_status'] !== 'settled') return $job;
-        $receipt = ProductVideoPolicy::json($job['receipt_json']);
-        if (empty($receipt['content'])) return $job;
-        try {
-            $result = ProductVideoWorker::parse($job, $receipt);
-        } catch (InvalidArgumentException|\JsonException|\RuntimeException $e) {
-            return $job;
-        }
-        $owner = ['id'=>$job['id'], 'tenant_id'=>$job['tenant_id'], 'user_id'=>$job['user_id'], 'delete_time'=>0];
-        ProductVideoJobs::table()->where($owner + [
-            'status'=>'failed', 'error'=>$job['error'], 'billing_status'=>'settled', 'consumption_id'=>$job['consumption_id'],
-        ])->update(['result_json'=>ProductVideoPolicy::encode($result), 'status'=>'success', 'error'=>'', 'update_time'=>time()]);
-        return ProductVideoJobs::owned((int)$job['tenant_id'], (int)$job['user_id'], (int)$job['id']);
+        return self::failedTiming($job) ? ProductVideoJobs::restoreSettledText($job) : $job;
     }
 
     /** A model may accept images and videos in separate modes. Require them together. */
