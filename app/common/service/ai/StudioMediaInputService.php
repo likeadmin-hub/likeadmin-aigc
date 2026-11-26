@@ -183,6 +183,12 @@ final class StudioMediaInputService
         return ['uri'=>$uri,'url'=>$url,'duration'=>(float)$facts['duration'],'file_size'=>(int)$facts['file_size'],'name'=>(string)$file['name'],'tenant_id'=>$tenant,'user_id'=>$user,'file_id'=>(int)$file['id']]+$storage;
     }
 
+    /** Copy an owned managed video into a private worker directory, without re-encoding. */
+    public static function copyOwnedVideo(int $tenant, int $user, string $uri, string $target): void
+    {
+        self::materialize(self::canonicalUri($uri), $target, $tenant, $user);
+    }
+
     public static function videoInput(array $asset): string
     {
         $fresh = self::validateVideo((int)$asset['tenant_id'], (int)$asset['user_id'], (string)$asset['uri']);

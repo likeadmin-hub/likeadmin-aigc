@@ -1,0 +1,45 @@
+{
+  "code": "aigc_depth_replication",
+  "name": "深度复刻",
+  "version": "1.0.0",
+  "require_core": ">=1.0.442",
+  "description": "分析原视频的镜头深度，逐镜头调整白模光影并保留原声导出。",
+  "changelog": "新增整景深度分析、同帧调光预览与原声 MP4 导出。",
+  "icon": "resource/image/common/menu_generator.png",
+  "cover": "resource/image/common/menu_generator.png",
+  "category": "aigc",
+  "is_builtin": 1,
+  "expire_policy": "allow",
+  "sort": 846,
+  "frontends": [
+    "platform",
+    "tenant",
+    "pc"
+  ],
+  "api_prefix": "/app/aigc_depth_replication",
+  "menus": "menus/tenant.json",
+  "permissions": "permissions/tenant.json",
+  "migrations": "migrations",
+  "dependencies": [],
+  "frontend_entries": [
+    {
+      "terminal": "pc",
+      "entry_key": "aigc_depth_replication",
+      "name": "深度复刻",
+      "path": "/ai/tools/aigc_depth_replication",
+      "icon": "resource/image/common/menu_generator.png",
+      "sort": 84,
+      "status": 1
+    },
+    {
+      "terminal": "tenant",
+      "entry_key": "aigc_depth_replication_admin",
+      "name": "深度复刻",
+      "path": "/apps/aigc_depth_replication/config",
+      "icon": "el-icon-VideoCamera",
+      "sort": 84,
+      "status": 1
+    }
+  ]
+}
+

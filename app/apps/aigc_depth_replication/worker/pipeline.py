@@ -3,7 +3,6 @@ import argparse
 import base64
 from fractions import Fraction
 import json
-import math
 import os
 from pathlib import Path
 import subprocess
@@ -16,7 +15,7 @@ import numpy as np
 
 
 def probe(path, frames=False):
-    args = ['ffprobe', '-v', 'error', '-protocol_whitelist', 'file,pipe', '-show_streams', '-show_format']
+    args = [os.getenv('FFPROBE_BINARY', 'ffprobe'), '-v', 'error', '-protocol_whitelist', 'file,pipe', '-show_streams', '-show_format']
     if frames:
         args += ['-select_streams', 'v:0', '-show_frames', '-show_entries',
                  'stream:stream_side_data:format:frame=best_effort_timestamp,pkt_duration']
@@ -51,7 +50,7 @@ def layout(source):
 
 def decode(source, meta):
     w, h = meta['work_width'], meta['work_height']
-    args = ['ffmpeg','-v','error','-nostdin','-protocol_whitelist','file,pipe','-i',str(source),
+    args = [os.getenv('FFMPEG_BINARY', 'ffmpeg'),'-v','error','-nostdin','-protocol_whitelist','file,pipe','-i',str(source),
             '-map','0:v:0','-vf',f'scale={w}:{h},setsar=1','-vsync','0','-pix_fmt','rgb24','-f','rawvideo','pipe:1']
     frames = np.empty((len(meta['pts']), h, w, 3), dtype=np.uint8)
     with subprocess.Popen(args, stdout=subprocess.PIPE) as proc:
@@ -153,7 +152,7 @@ def render(source, folder, tables, output):
             emit(stream.encode(frame))
         emit(stream.encode())
     audio_codec = 'copy' if all(x in ('aac','mp3','alac','ac3','eac3') for x in meta['audio']) else 'aac'
-    args = ['ffmpeg','-v','error','-nostdin','-y','-copyts','-protocol_whitelist','file,pipe','-i',str(intermediate),
+    args = [os.getenv('FFMPEG_BINARY', 'ffmpeg'),'-v','error','-nostdin','-y','-copyts','-protocol_whitelist','file,pipe','-i',str(intermediate),
             '-protocol_whitelist','file,pipe','-i',str(source),'-map','0:v:0','-map','1:a?','-c:v','copy','-c:a',audio_codec,
             '-avoid_negative_ts','disabled','-movflags','+faststart',str(output)]
     subprocess.run(args,check=True)

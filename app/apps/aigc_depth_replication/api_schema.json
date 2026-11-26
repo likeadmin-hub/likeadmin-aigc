@@ -1,0 +1,102 @@
+{
+  "app_code": "aigc_depth_replication",
+  "apis": [
+    {
+      "api_path": "app.aigc_depth_replication.job/config",
+      "api_method": "GET",
+      "permission_key": "aigc_depth_replication:job:config:user",
+      "scene": "user",
+      "need_login": 0,
+      "need_role_permission": 0
+    },
+    {
+      "api_path": "app.aigc_depth_replication.job/create",
+      "api_method": "POST",
+      "permission_key": "aigc_depth_replication:job:create:user",
+      "scene": "user",
+      "need_login": 1,
+      "need_role_permission": 0
+    },
+    {
+      "api_path": "app.aigc_depth_replication.job/detail",
+      "api_method": "GET",
+      "permission_key": "aigc_depth_replication:job:detail:user",
+      "scene": "user",
+      "need_login": 1,
+      "need_role_permission": 0
+    },
+    {
+      "api_path": "app.aigc_depth_replication.job/frames",
+      "api_method": "GET",
+      "permission_key": "aigc_depth_replication:job:frames:user",
+      "scene": "user",
+      "need_login": 1,
+      "need_role_permission": 0
+    },
+    {
+      "api_path": "app.aigc_depth_replication.job/lighting",
+      "api_method": "POST",
+      "permission_key": "aigc_depth_replication:job:lighting:user",
+      "scene": "user",
+      "need_login": 1,
+      "need_role_permission": 0
+    },
+    {
+      "api_path": "app.aigc_depth_replication.job/lists",
+      "api_method": "GET",
+      "permission_key": "aigc_depth_replication:job:lists:user",
+      "scene": "user",
+      "need_login": 1,
+      "need_role_permission": 0
+    },
+    {
+      "api_path": "app.aigc_depth_replication.config/detail",
+      "api_method": "GET",
+      "permission_key": "aigc_depth_replication:config:detail",
+      "scene": "tenant_admin",
+      "need_login": 1,
+      "need_role_permission": 1
+    },
+    {
+      "api_path": "app.aigc_depth_replication.config/setup",
+      "api_method": "POST",
+      "permission_key": "aigc_depth_replication:config:setup",
+      "scene": "tenant_admin",
+      "need_login": 1,
+      "need_role_permission": 1
+    },
+    {
+      "api_path": "app.aigc_depth_replication.job/lists",
+      "api_method": "GET",
+      "permission_key": "aigc_depth_replication:job:lists",
+      "scene": "tenant_admin",
+      "need_login": 1,
+      "need_role_permission": 1
+    },
+    {
+      "api_path": "app.aigc_depth_replication.config/detail",
+      "api_method": "GET",
+      "permission_key": "aigc_depth_replication:config:detail",
+      "scene": "platform_admin",
+      "need_login": 1,
+      "need_role_permission": 1
+    },
+    {
+      "api_path": "app.aigc_depth_replication.config/setup",
+      "api_method": "POST",
+      "permission_key": "aigc_depth_replication:config:setup",
+      "scene": "platform_admin",
+      "need_login": 1,
+      "need_role_permission": 1
+    },
+    {
+      "api_path": "app.aigc_depth_replication.job/lists",
+      "api_method": "GET",
+      "permission_key": "aigc_depth_replication:job:lists",
+      "scene": "platform_admin",
+      "need_login": 1,
+      "need_role_permission": 1
+    }
+  ]
+}
+
