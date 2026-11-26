@@ -39,7 +39,8 @@ class AppPackageUpdateService
         }
         $artwork = AppCatalogArtwork::byCode(false);
         foreach ($byCode as $code => &$row) {
-            $row['catalog_cover_url'] = $artwork[$code] ?? '';
+            $row['catalog_cover_url'] = AppCatalogArtwork::bundledCoverUrl($code, (string)($row['cover'] ?? ''))
+                ?: ($artwork[$code] ?? '');
         }
         unset($row);
         return array_values($byCode);
