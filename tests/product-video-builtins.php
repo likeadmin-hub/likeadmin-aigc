@@ -84,7 +84,7 @@ try{C::withDirectory($dir,static function()use($dir){
  $replacementUri=str_replace('.png','_replacement.png',$uri);
  $receipt=['tenant_id'=>1,'source'=>0,'source_id'=>1,'type'=>10,'name'=>'Admin replacement','uri'=>$replacementUri,'storage_scope'=>$storage['scope'],'storage_engine'=>$engine,'storage_domain'=>$domain,'create_time'=>time(),'update_time'=>time()];
  $receiptId=Db::name('tenant_file')->insertGetId($receipt);
- T::save(1,['id'=>$advancedSource['id'],'configuration'=>['images'=>[['file_id'=>$receiptId]]]]);
+ T::save(1,['id'=>$advancedSource['id'],'configuration'=>['images'=>[['file_id'=>$receiptId,'mention_name'=>'图片1']]]]);
  $publishReplacement=fn()=>B::publish($advancedSource['id'],['confirm_public_media'=>true,'expected_version'=>2],1);
  Db::name('tenant_file')->where('id',$receiptId)->update(['delete_time'=>time()]);
  Db::name('tenant_file')->insert(array_replace($receipt,['source'=>1,'source_id'=>$user]));
