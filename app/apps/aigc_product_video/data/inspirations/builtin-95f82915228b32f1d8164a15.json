@@ -1,0 +1,122 @@
+{
+    "schema_version": 1,
+    "key": "builtin-95f82915228b32f1d8164a15",
+    "version": 1,
+    "title": "商品视频灵感",
+    "status": 1,
+    "deleted": false,
+    "sort": 0,
+    "model_name": "Muse Video",
+    "model_identity": {
+        "resource_type": "model",
+        "source_code": "likeadmin_api",
+        "upstream_resource_key": "model:muse-video:xAIQ",
+        "upstream_app_code": ""
+    },
+    "configuration": {
+        "template_version": "1.0.0",
+        "normal_source": "prompt",
+        "reference_mode": "reference",
+        "market_region": "中国",
+        "audio": null,
+        "analyze_chapters": false,
+        "prompt_review_images": [
+            "uploads/images/20261110/20261110160906eb39d2078.png",
+            "uploads/images/20261110/202611101609067b64b7115.png"
+        ],
+        "generation_assets": [],
+        "selected_mentions": [
+            {
+                "name": "图片1",
+                "type": "image",
+                "reference_slot_id": "pv_236af406-dbd4-4b75-ad37-e0ba5aa311b4",
+                "uri": "uploads/images/20261110/20261110160906eb39d2078.png"
+            },
+            {
+                "name": "图片2",
+                "type": "image",
+                "reference_slot_id": "pv_995d89ea-1995-46a8-aac0-9127a6651f00",
+                "uri": "uploads/images/20261110/202611101609067b64b7115.png"
+            }
+        ],
+        "mode": "normal",
+        "images": [
+            {
+                "uri": "uploads/images/20261110/20261110160906eb39d2078.png",
+                "storage_scope": "platform",
+                "storage_engine": "qcloud",
+                "storage_domain": "https://aigclikeadmin-1304073946.cos.ap-guangzhou.myqcloud.com",
+                "name": "b109742d54904ab08c1dbda064a37b07.png",
+                "role": "",
+                "reference_slot_id": "pv_236af406-dbd4-4b75-ad37-e0ba5aa311b4",
+                "mention_name": "图片1"
+            },
+            {
+                "uri": "uploads/images/20261110/202611101609067b64b7115.png",
+                "storage_scope": "platform",
+                "storage_engine": "qcloud",
+                "storage_domain": "https://aigclikeadmin-1304073946.cos.ap-guangzhou.myqcloud.com",
+                "name": "cb9e751db06946d1bc5802ce1090b50b.png",
+                "role": "",
+                "reference_slot_id": "pv_995d89ea-1995-46a8-aac0-9127a6651f00",
+                "mention_name": "图片2"
+            }
+        ],
+        "reference_video": null,
+        "product_info": "",
+        "prompt": "【全局设定】\n10秒，9:16竖屏，写实咖啡器具广告。\n@图片1 锁定产品：哑光黑壶身、细长弯曲鹅颈壶嘴、倾斜手柄、圆形盖钮及方形底座，屏幕与旋钮位置不变。\n@图片2 参考壶嘴切口及出水形态。深灰背景、深色石台，左后方条形柔光勾勒轮廓，浅景深、细腻胶片颗粒；镜间硬切，保留自然注水声。\n【视频脚本】\n镜头1｜0–2.5s：水壶静置底座，壶嘴朝左；镜头从正面缓慢环绕至左前方20°，保持完整产品入画，柔亮反光展现壶身曲面与哑光纹理。\n镜头2｜2.5–4.5s：切壶嘴微距，固定机位；壶已离开底座并向前倾斜，清水从切口下缘连续流出，水柱向下自然弯落，边缘高光清晰。\n镜头3｜4.5–8s：侧面近景，镜头缓慢向右平移8cm；一只手握柄稳定注水，壶嘴距滤杯内粉床约5cm，细水流落在中央，咖啡粉逐渐浸润，表面泛起细小气泡。\n镜头4｜8–10s：壶已归位，滤杯与玻璃分享壶置于旁侧；镜头从组合中景缓慢推近，水壶为视觉中心，背景咖啡液滴入分享壶，形成轻微涟漪。\n【红线约束】\n产品结构、比例、材质不变；无新增按键、虚构温度读数。水流仅从壶嘴流出，不穿模、不逆流；手指自然，壶盖闭合，底座留在台面。无夸张蒸汽、悬浮部件、额外字幕及水印。",
+        "requirements": "",
+        "template_code": "detail",
+        "language": "中文",
+        "plan": null,
+        "reference_analysis": null,
+        "analysis_model_id": "",
+        "planning_model_id": "",
+        "video_selection": {
+            "model_id": "",
+            "quality": "",
+            "ratio": "9:16",
+            "duration": 10
+        }
+    },
+    "media": {
+        "uri": "uploads/aigc_video/20261110/20261110161253a21608551.mp4",
+        "storage_scope": "platform",
+        "storage_engine": "qcloud",
+        "storage_domain": "https://aigclikeadmin-1304073946.cos.ap-guangzhou.myqcloud.com",
+        "width": 720,
+        "height": 1280,
+        "duration": 10
+    },
+    "retained_media": [
+        {
+            "uri": "uploads/images/20261110/20261110160906eb39d2078.png",
+            "storage_scope": "platform",
+            "storage_engine": "qcloud",
+            "storage_domain": "https://aigclikeadmin-1304073946.cos.ap-guangzhou.myqcloud.com",
+            "name": "b109742d54904ab08c1dbda064a37b07.png",
+            "role": "",
+            "reference_slot_id": "pv_236af406-dbd4-4b75-ad37-e0ba5aa311b4",
+            "mention_name": "图片1"
+        },
+        {
+            "uri": "uploads/images/20261110/202611101609067b64b7115.png",
+            "storage_scope": "platform",
+            "storage_engine": "qcloud",
+            "storage_domain": "https://aigclikeadmin-1304073946.cos.ap-guangzhou.myqcloud.com",
+            "name": "cb9e751db06946d1bc5802ce1090b50b.png",
+            "role": "",
+            "reference_slot_id": "pv_995d89ea-1995-46a8-aac0-9127a6651f00",
+            "mention_name": "图片2"
+        },
+        {
+            "uri": "uploads/aigc_video/20261110/20261110161253a21608551.mp4",
+            "storage_scope": "platform",
+            "storage_engine": "qcloud",
+            "storage_domain": "https://aigclikeadmin-1304073946.cos.ap-guangzhou.myqcloud.com",
+            "width": 720,
+            "height": 1280,
+            "duration": 10
+        }
+    ]
+}
