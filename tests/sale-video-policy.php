@@ -2,6 +2,7 @@
 declare(strict_types=1);
 
 use app\common\service\app\aigc_product_video\{ProductVideoPolicy as Policy, ProductVideoImport, ProductVideoMaterials, ProductVideoTemplates, SaleVideoWorkflow};
+use app\common\service\power\MarketVideoAudioOutput;
 
 require dirname(__DIR__).'/runtime-loader.php';
 (new AigcRuntimeApp(dirname(__DIR__)))->initialize();
@@ -31,4 +32,20 @@ Policy::forSale(function () {
     expectSale($next['phase']==='images' && $next['name']==='Watch' && count($next['candidates'])===1,'TikTok product metadata');
 });
 expectSale(Policy::app()===Policy::APP && ProductVideoImport::capacity(['max_reference_images'=>15])===15,'product app scope restored');
+foreach (['sound', 'enable_audio', 'generate_audio_switch', 'audio', 'generate_audio'] as $field) {
+    $snapshot = ['params_schema'=>[$field=>['type'=>'boolean', 'default'=>false]]];
+    $request = MarketVideoAudioOutput::enable($snapshot, []);
+    expectSale($request[$field] === true, 'Native audio switch: '.$field);
+    MarketVideoAudioOutput::assertEnabled([$field=>$request[$field]]);
+    try {
+        MarketVideoAudioOutput::enable($snapshot + ['locked_params'=>[$field=>false]], []);
+        throw new RuntimeException('Silent SKU accepted: '.$field);
+    } catch (InvalidArgumentException $expected) {}
+}
+MarketVideoAudioOutput::assertEnabled(['parameters'=>['audio'=>true]]);
+expectSale(MarketVideoAudioOutput::field(['audio'=>['type'=>'object'], 'keep_original_sound'=>['type'=>'boolean']]) === null, 'Input audio and retained soundtrack do not enable output');
+try {
+    MarketVideoAudioOutput::assertEnabled(['enable_audio'=>false, 'keep_original_sound'=>true]);
+    throw new RuntimeException('Silent native payload accepted');
+} catch (InvalidArgumentException $expected) {}
 echo "Sale video policy, speech, imports and isolation passed\n";
