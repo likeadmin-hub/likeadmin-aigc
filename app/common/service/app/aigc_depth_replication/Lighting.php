@@ -54,7 +54,7 @@ final class Lighting
                 $key = max(0, ($dot+$lz)/$length);
                 $fill = max(0, (-$dot+0.45)/$length);
                 $light = .25+$s['key']*.011*$key+$s['fill']*.0055*$fill;
-                $shade = .82+($light-.82)*min(1, $s['shadow']*.015);
+                $shade = .82+($light-.82)*sqrt($s['shadow']/100);
                 $result .= chr((int)round(255*(1-exp(-2.35*$gain*$shade))));
             }
         }

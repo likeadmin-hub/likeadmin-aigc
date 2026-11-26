@@ -42,10 +42,13 @@ def layout(source):
     durations.append(int(index[-1].get('pkt_duration') or (durations[-1] if durations else 1)))
     tb = Fraction(stream['time_base'])
     scale = min(1, 448 / max(w, h))
+    audio = [s for s in info['streams'] if s['codec_type'] == 'audio']
+    audio_timing = [{'start': float(s.get('start_time', 0)), 'duration': float(s['duration']) if 'duration' in s else None,
+                     'rate': int(s.get('sample_rate') or 44100)} for s in audio]
     return dict(width=w, height=h, work_width=max(2, round(w*scale)), work_height=max(2, round(h*scale)),
                 pts=pts, ticks=durations, time_base=str(tb), rate=stream['avg_frame_rate'],
                 times=[float((p-pts[0])*tb) for p in pts], duration=float((pts[-1]-pts[0]+durations[-1])*tb),
-                audio=[s['codec_name'] for s in info['streams'] if s['codec_type'] == 'audio'])
+                audio=[s['codec_name'] for s in audio], audio_timing=audio_timing)
 
 
 def decode(source, meta):
@@ -151,9 +154,13 @@ def render(source, folder, tables, output):
             frame.pts, frame.time_base = pts, base
             emit(stream.encode(frame))
         emit(stream.encode())
-    audio_codec = 'copy' if all(x in ('aac','mp3','alac','ac3','eac3') for x in meta['audio']) else 'aac'
+    compatible = {'aac', 'mp3', 'alac', 'ac3', 'eac3'}
+    converted = [i for i, codec in enumerate(meta['audio']) if codec not in compatible]
+    audio_args = ['-c:a', 'copy']
+    for track in converted:
+        audio_args += [f'-c:a:{track}', 'aac']
     args = [os.getenv('FFMPEG_BINARY', 'ffmpeg'),'-v','error','-nostdin','-y','-copyts','-protocol_whitelist','file,pipe','-i',str(intermediate),
-            '-protocol_whitelist','file,pipe','-i',str(source),'-map','0:v:0','-map','1:a?','-c:v','copy','-c:a',audio_codec,
+            '-protocol_whitelist','file,pipe','-i',str(source),'-map','0:v:0','-map','1:a?','-c:v','copy',*audio_args,
             '-avoid_negative_ts','disabled','-movflags','+faststart',str(output)]
     subprocess.run(args,check=True)
     final = layout(output)
@@ -161,8 +168,15 @@ def render(source, folder, tables, output):
     if (len(final['pts']) != len(meta['pts']) or max(map(abs,offsets)) > .0011
             or len(final['audio']) != len(meta['audio']) or abs(final['duration']-meta['duration']) > .002):
         raise ValueError('导出音视频时间轴校验失败')
+    for i, (before, after) in enumerate(zip(meta.get('audio_timing', []), final['audio_timing'])):
+        # Encoders can add a packet of priming; container edit lists and time bases may round slightly.
+        tolerance = 0.003 + (1024 / before['rate'] if i in converted else 0)
+        if abs(before['start'] - after['start']) > tolerance or (
+                before['duration'] is not None and after['duration'] is not None
+                and abs(before['duration'] - after['duration']) > tolerance):
+            raise ValueError('导出音视频时间轴校验失败')
     intermediate.unlink()
-    return {'render_seconds':round(time.monotonic()-started,3),'audio_codec':audio_codec}
+    return {'render_seconds': round(time.monotonic()-started,3), 'audio_codec': 'aac' if converted else 'copy'}
 
 
 if __name__ == '__main__':
