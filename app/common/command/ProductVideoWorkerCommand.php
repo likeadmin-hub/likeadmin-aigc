@@ -7,12 +7,14 @@ use think\console\{Command,Input,Output};
 use think\console\input\Option;
 final class ProductVideoWorkerCommand extends Command
 {
-    protected function configure(){ $this->setName('product-video:worker')->addOption('replication',null,Option::VALUE_NONE,'Process video replication jobs')->addOption('once',null,Option::VALUE_NONE,'Process one stage')->addOption('job',null,Option::VALUE_OPTIONAL,'Restrict to job',0)->setDescription('Process independent product video jobs'); }
+    protected function configure(){ $this->setName('product-video:worker')->addOption('sale',null,Option::VALUE_NONE,'Process sale video jobs only')->addOption('replication',null,Option::VALUE_NONE,'Process video replication jobs')->addOption('once',null,Option::VALUE_NONE,'Process one stage')->addOption('job',null,Option::VALUE_OPTIONAL,'Restrict to job',0)->setDescription('Process independent product video jobs'); }
     protected function execute(Input $input,Output $output)
     {
         @set_time_limit(0);$running=true;
         if(function_exists('pcntl_async_signals')){pcntl_async_signals(true);foreach([SIGTERM,SIGINT] as $signal)pcntl_signal($signal,static function()use(&$running){$running=false;});}
         $replication = (bool)$input->getOption('replication');
+        $sale = (bool)$input->getOption('sale');
+        if ($sale && $replication) throw new \InvalidArgumentException('请选择单个视频应用');
         $once = (bool)$input->getOption('once');
         $id = (int)$input->getOption('job');
         do{
@@ -23,9 +25,9 @@ final class ProductVideoWorkerCommand extends Command
                     : ProductVideoWorker::tick($id);
                 $count = $replication
                     ? (AppRegistryService::isInstalled(ProductVideoPolicy::REPLICATION) ? ProductVideoPolicy::forReplication($tick) : 0)
-                    : $tick();
-                if (!$replication && !$id && AppRegistryService::isInstalled(ProductVideoPolicy::SALE)) {
-                    $count += ProductVideoPolicy::forSale(fn() => ProductVideoWorker::tick());
+                    : ($sale ? 0 : $tick());
+                if (($sale || (!$replication && !$id && !$once)) && AppRegistryService::isInstalled(ProductVideoPolicy::SALE)) {
+                    $count += ProductVideoPolicy::forSale(fn() => ProductVideoWorker::tick($id));
                 }
             }catch(\Throwable $e){$output->writeln('Product video worker: '.get_class($e));return 1;}
             if($once){$output->writeln('processed='.$count);break;}if(!$count && $running)sleep(3);

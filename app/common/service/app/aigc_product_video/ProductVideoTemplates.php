@@ -168,6 +168,9 @@ final class ProductVideoTemplates
         $patch=(array)($params['configuration']??[]);$body=$source;
         if(!empty($params['preview']['file_id']))$media=ProductVideoAdminMedia::asset($tenant,(array)$params['preview'],20);
         foreach(['mode','reference_mode','product_info','prompt','market_region','language','audio','analyze_chapters','video_selection'] as $key)if(array_key_exists($key,$patch))$body[$key]=$patch[$key];
+        if (ProductVideoPolicy::templateApp() === ProductVideoPolicy::SALE && isset($patch['normal_source'])) {
+            $body['normal_source'] = $patch['normal_source'];
+        }
         // References can be reordered or removed; only the source's authorized objects can be published.
         if(isset($patch['images'])){
             $allowed=array_column($source['images'],null,'uri');$images=[];
