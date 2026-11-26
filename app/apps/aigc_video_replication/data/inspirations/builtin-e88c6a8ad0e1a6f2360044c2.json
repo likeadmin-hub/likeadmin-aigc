@@ -1,0 +1,98 @@
+{
+    "schema_version": 1,
+    "app_code": "aigc_video_replication",
+    "key": "builtin-e88c6a8ad0e1a6f2360044c2",
+    "version": 2,
+    "title": "礼帽展示（英语版）",
+    "status": 1,
+    "sort": 0,
+    "deleted": false,
+    "model_identity": {
+        "resource_type": "model",
+        "source_code": "likeadmin_api",
+        "upstream_resource_key": "model:bytedance-seedance-2-mini:official",
+        "upstream_app_code": ""
+    },
+    "configuration": {
+        "market_region": "US(美国)",
+        "images": [
+            {
+                "uri": "uploads/images/20261111/202611111336228ef362895.jpg",
+                "storage_scope": "platform",
+                "storage_engine": "qcloud",
+                "storage_domain": "https://aigclikeadmin-1304073946.cos.ap-guangzhou.myqcloud.com",
+                "name": "huaban-49072003.jpg",
+                "reference_slot_id": "pv_3aab971065f6855d8c0533a6",
+                "mention_name": "图片1",
+                "type": "image"
+            }
+        ],
+        "reference_video": {
+            "uri": "uploads/video/20261126/202611261359070501d9027.mp4",
+            "storage_scope": "platform",
+            "storage_engine": "qcloud",
+            "storage_domain": "https://aigclikeadmin-1304073946.cos.ap-guangzhou.myqcloud.com",
+            "duration": 30.08,
+            "width": 720,
+            "height": 1280,
+            "name": "main_result_48d2a024fe154f37b00a099c9f98f8c8.mp4",
+            "type": "video",
+            "mime_type": "video/mp4",
+            "file_size": 41221838,
+            "format": "mp4"
+        },
+        "prompt": "A young woman presents a beige felt cloche hat with a black ribbon bow, highlighting its classic shape and elegant details in an indoor setting.\n0–4.2 秒　Medium shot of the presenter holding up the beige felt hat by its brim, showing the front profile to the camera. Text overlay reads 'The perfect vintage accessory is finally here! 😍'. She speaks enthusiastically: 'Just a little PSA, this vintage-inspired cloche hat is the best accessory ever of all time.'\n4.2–8.1 秒　Close-up shot focusing on her hands adjusting the large black satin ribbon bow on the side of the hat. The texture of the wool felt is visible. Voiceover continues: 'It's soft, structured wool felt, it'll literally elevate your entire outfit, it gets better with styling.'\n8.1–10 秒　Cut back to the medium shot where she holds the hat out fully again, smiling at the camera. She concludes: 'I got the bow style you can get plain or patterned...'",
+        "language": "英语",
+        "video_selection": {
+            "model_id": "",
+            "quality": "720p",
+            "duration": 10,
+            "ratio": "9:16"
+        },
+        "clip": {
+            "start": 0,
+            "end": 10
+        }
+    },
+    "media": {
+        "uri": "uploads/aigc_video/20261126/20261126140554772531230.mp4",
+        "storage_scope": "platform",
+        "storage_engine": "qcloud",
+        "storage_domain": "https://aigclikeadmin-1304073946.cos.ap-guangzhou.myqcloud.com",
+        "name": "20261126140554772531230.mp4",
+        "type": "video"
+    },
+    "retained_media": [
+        {
+            "uri": "uploads/images/20261111/202611111336228ef362895.jpg",
+            "storage_scope": "platform",
+            "storage_engine": "qcloud",
+            "storage_domain": "https://aigclikeadmin-1304073946.cos.ap-guangzhou.myqcloud.com",
+            "name": "huaban-49072003.jpg",
+            "reference_slot_id": "pv_3aab971065f6855d8c0533a6",
+            "mention_name": "图片1",
+            "type": "image"
+        },
+        {
+            "uri": "uploads/video/20261126/202611261359070501d9027.mp4",
+            "storage_scope": "platform",
+            "storage_engine": "qcloud",
+            "storage_domain": "https://aigclikeadmin-1304073946.cos.ap-guangzhou.myqcloud.com",
+            "duration": 30.08,
+            "width": 720,
+            "height": 1280,
+            "name": "main_result_48d2a024fe154f37b00a099c9f98f8c8.mp4",
+            "type": "video",
+            "mime_type": "video/mp4",
+            "file_size": 41221838
+        },
+        {
+            "uri": "uploads/aigc_video/20261126/20261126140554772531230.mp4",
+            "storage_scope": "platform",
+            "storage_engine": "qcloud",
+            "storage_domain": "https://aigclikeadmin-1304073946.cos.ap-guangzhou.myqcloud.com",
+            "name": "20261126140554772531230.mp4",
+            "type": "video"
+        }
+    ]
+}

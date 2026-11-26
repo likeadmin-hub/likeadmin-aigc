@@ -1,0 +1,205 @@
+{
+    "schema_version": 1,
+    "app_code": "aigc_story_commerce",
+    "key": "builtin-704bd78f547c9665620728d0",
+    "version": 2,
+    "title": "剧情带货灵感",
+    "status": 1,
+    "sort": 0,
+    "deleted": false,
+    "model_identity": {
+        "resource_type": "model",
+        "source_code": "likeadmin_api",
+        "upstream_resource_key": "model:official-33-6cad7431442bbdab13:official",
+        "upstream_app_code": ""
+    },
+    "configuration": {
+        "images": [
+            {
+                "uri": "uploads/images/20261110/202611100102469cdc98051.png",
+                "storage_scope": "platform",
+                "storage_engine": "qcloud",
+                "storage_domain": "https://aigclikeadmin-1304073946.cos.ap-guangzhou.myqcloud.com",
+                "name": "d58ea6dc41284075b01f6e01624900bf.png",
+                "role": "",
+                "reference_slot_id": "sc_32620058-858a-41e8-8524-a47214a49040",
+                "mention_name": "图片1",
+                "type": "image"
+            }
+        ],
+        "product_info": "已确认事实：图中为一只佩戴于手腕的腕表，黑色圆形表盘，银色表壳与表冠，黑色表带；盘面印有“STERNGLAS”“ZEITMESSER”“AUTOMATIK”字样，配银色指针与白色刻度，六点位上方设有日期窗，显示数字“25”。不确定项：表带与表壳的具体材质、机芯型号、走时精度、防水等级、价格及认证均未在图中体现，不作说明。",
+        "product_observations": "",
+        "requirements": "",
+        "story_type": "ceo",
+        "custom_story": "",
+        "style_id": "__none__",
+        "custom_style": "",
+        "language": "中文",
+        "market_region": "",
+        "audio": null,
+        "video_selection": {
+            "quality": "480p",
+            "ratio": "9:16",
+            "duration": 15,
+            "model_id": ""
+        },
+        "script": {
+            "summary": "会议室里一场“总裁是否迟到”的时间误判，因一次抬手看表被悄然化解，反衬出佩戴者的从容与腕表的清晰读时。",
+            "characters": [
+                {
+                    "id": "character_1",
+                    "name": "陆总",
+                    "appearance": "三十余岁男性，深色修身西装、白衬衫、袖口整洁，气质沉稳，左手腕佩戴图中同款黑盘银壳腕表"
+                },
+                {
+                    "id": "character_2",
+                    "name": "下属小林",
+                    "appearance": "年轻男性，浅灰西装，手持文件夹，神情略带紧张，常下意识低头看自己的手机"
+                }
+            ],
+            "shots": [
+                {
+                    "id": "shot_1",
+                    "start": 0,
+                    "end": 3,
+                    "action": "现代会议室，长桌两侧已坐人，门被推开，陆总逆光走入，众人目光齐刷刷转向他，气氛瞬间紧绷；冷调侧光勾勒西装轮廓。",
+                    "dialogue": "",
+                    "product_point": "",
+                    "camera": "中景，门框构图，轻微推镜",
+                    "sound": "无声",
+                    "source_slots": [
+                        "sc_32620058-858a-41e8-8524-a47214a49040"
+                    ]
+                },
+                {
+                    "id": "shot_2",
+                    "start": 3,
+                    "end": 6,
+                    "action": "小林低头猛看一眼手机，眉头皱起，抬眼欲言又止，手指无意识敲着文件夹边缘，显露“时间对不上”的迟疑。",
+                    "dialogue": "",
+                    "product_point": "",
+                    "camera": "近景，过肩拍小林，焦点在其面部与手机",
+                    "sound": "无声",
+                    "source_slots": [
+                        "sc_32620058-858a-41e8-8524-a47214a49040"
+                    ]
+                },
+                {
+                    "id": "shot_3",
+                    "start": 6,
+                    "end": 9,
+                    "action": "陆总行至桌前，自然抬起左腕整理袖口，镜头切至腕表特写：黑盘银针清晰可读，AUTOMATIK字样与日期窗“25”入画，光线在表壳上滑过。",
+                    "dialogue": "",
+                    "product_point": "展示表盘高对比刻度与指针的易读性、盘面“STERNGLAS / AUTOMATIK”标识及日期窗的可见细节",
+                    "camera": "大特写，微距质感，缓慢横移扫过表盘",
+                    "sound": "无声",
+                    "source_slots": [
+                        "sc_32620058-858a-41e8-8524-a47214a49040"
+                    ]
+                },
+                {
+                    "id": "shot_4",
+                    "start": 9,
+                    "end": 12,
+                    "action": "小林再低头对照手机与墙上挂钟，表情由紧张转为尴尬，悄悄把手机屏幕朝下扣在桌上；陆总已落座，神色如常。",
+                    "dialogue": "",
+                    "product_point": "",
+                    "camera": "双人近景，浅景深，焦点从小林脸部移到陆总",
+                    "sound": "无声",
+                    "source_slots": [
+                        "sc_32620058-858a-41e8-8524-a47214a49040"
+                    ]
+                },
+                {
+                    "id": "shot_5",
+                    "start": 12,
+                    "end": 15,
+                    "action": "陆总左手随意搭在桌面，腕表黑带与银壳在冷光下低调有型，他抬手下令开会，众人翻开文件，节奏回到正轨。",
+                    "dialogue": "",
+                    "product_point": "呈现腕表在正装场景下的整体佩戴效果与简约轮廓",
+                    "camera": "中近景，平视，定格于手腕与桌面的构图",
+                    "sound": "无声",
+                    "source_slots": [
+                        "sc_32620058-858a-41e8-8524-a47214a49040"
+                    ]
+                }
+            ],
+            "ending": "以一次“谁记错时间”的小反转收束，不靠台词而靠抬手看表的动作完成情绪转折，腕表作为读时工具自然嵌入职场节奏，引导观众关注其在正式场合中清晰、克制的日常佩戴感。"
+        },
+        "script_input_key": "8f442e71d375696461127b4ea71d03223ca111efe37f743cb27565f9789b4bf0",
+        "genre_snapshot": {
+            "code": "ceo",
+            "name": "霸道总裁",
+            "instruction": "用人物身份和认知反差推动一个小事件，商品自然参与互动，不以炫富代替故事。",
+            "version": "e37501371ff684d2efcb1623d9d04c734cf65b62002cd45df4e15cb8d2b2053b",
+            "status": 1,
+            "sort": 140
+        },
+        "style_snapshot": {
+            "id": "__none__",
+            "name": "无风格",
+            "prompt": "",
+            "mode": "auto"
+        }
+    },
+    "media": {
+        "uri": "uploads/aigc_video/20261111/202611112120333f3dd3690.mp4",
+        "storage_scope": "platform",
+        "storage_engine": "qcloud",
+        "storage_domain": "https://aigclikeadmin-1304073946.cos.ap-guangzhou.myqcloud.com",
+        "width": 496,
+        "height": 864,
+        "duration": 15.104,
+        "type": "video",
+        "mime_type": "video/mp4",
+        "file_size": 4468481
+    },
+    "retained_media": [
+        {
+            "uri": "uploads/images/20261110/202611100102469cdc98051.png",
+            "storage_scope": "platform",
+            "storage_engine": "aliyun",
+            "storage_domain": "https://opcaigclikeadmin.oss-cn-shenzhen.aliyuncs.com",
+            "name": "d58ea6dc41284075b01f6e01624900bf.png",
+            "role": "",
+            "reference_slot_id": "sc_32620058-858a-41e8-8524-a47214a49040",
+            "mention_name": "图片1",
+            "type": "image"
+        },
+        {
+            "uri": "uploads/aigc_video/20261111/202611112120333f3dd3690.mp4",
+            "storage_scope": "platform",
+            "storage_engine": "aliyun",
+            "storage_domain": "https://opcaigclikeadmin.oss-cn-shenzhen.aliyuncs.com",
+            "width": 496,
+            "height": 864,
+            "duration": 15.104,
+            "type": "video",
+            "mime_type": "video/mp4",
+            "file_size": 4468481
+        },
+        {
+            "uri": "uploads/aigc_video/20261111/202611112120333f3dd3690.mp4",
+            "storage_scope": "platform",
+            "storage_engine": "qcloud",
+            "storage_domain": "https://aigclikeadmin-1304073946.cos.ap-guangzhou.myqcloud.com",
+            "width": 496,
+            "height": 864,
+            "duration": 15.104,
+            "type": "video",
+            "mime_type": "video/mp4",
+            "file_size": 4468481
+        },
+        {
+            "uri": "uploads/images/20261110/202611100102469cdc98051.png",
+            "storage_scope": "platform",
+            "storage_engine": "qcloud",
+            "storage_domain": "https://aigclikeadmin-1304073946.cos.ap-guangzhou.myqcloud.com",
+            "name": "d58ea6dc41284075b01f6e01624900bf.png",
+            "role": "",
+            "reference_slot_id": "sc_32620058-858a-41e8-8524-a47214a49040",
+            "mention_name": "图片1",
+            "type": "image"
+        }
+    ]
+}
