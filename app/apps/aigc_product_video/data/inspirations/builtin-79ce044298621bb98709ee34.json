@@ -1,0 +1,223 @@
+{
+    "schema_version": 1,
+    "key": "builtin-79ce044298621bb98709ee34",
+    "version": 1,
+    "title": "腕表商品展示",
+    "status": 1,
+    "deleted": false,
+    "sort": 0,
+    "model_name": "Muse Video",
+    "model_identity": {
+        "resource_type": "model",
+        "source_code": "likeadmin_api",
+        "upstream_resource_key": "model:muse-video:xAIQ",
+        "upstream_app_code": ""
+    },
+    "configuration": {
+        "template_version": "1.0.0",
+        "normal_source": "prompt",
+        "reference_mode": "reference",
+        "market_region": "",
+        "audio": null,
+        "analyze_chapters": true,
+        "prompt_review_images": [
+            "uploads/images/20261110/202611100102469cdc98051.png",
+            "uploads/images/20261110/202611100102467e57b9881.png",
+            "uploads/images/20261110/20261110010245539227265.png"
+        ],
+        "generation_assets": [],
+        "selected_mentions": [
+            {
+                "name": "图片1",
+                "type": "image",
+                "reference_slot_id": "pv_15ad8ee3-2c77-4ed9-a885-b881a5386e37",
+                "uri": "uploads/images/20261110/202611100102469cdc98051.png"
+            },
+            {
+                "name": "图片2",
+                "type": "image",
+                "reference_slot_id": "pv_c35f0e1f-1fa6-4a54-8d4f-41667de9797a",
+                "uri": "uploads/images/20261110/202611100102467e57b9881.png"
+            },
+            {
+                "name": "图片3",
+                "type": "image",
+                "reference_slot_id": "pv_48182ebf-4279-4727-8d0d-7aed592493ca",
+                "uri": "uploads/images/20261110/20261110010245539227265.png"
+            }
+        ],
+        "mode": "advanced",
+        "images": [
+            {
+                "uri": "uploads/images/20261110/202611100102469cdc98051.png",
+                "storage_scope": "platform",
+                "storage_engine": "qcloud",
+                "storage_domain": "https://aigclikeadmin-1304073946.cos.ap-guangzhou.myqcloud.com",
+                "name": "d58ea6dc41284075b01f6e01624900bf.png",
+                "role": "",
+                "reference_slot_id": "pv_15ad8ee3-2c77-4ed9-a885-b881a5386e37",
+                "mention_name": "图片1"
+            },
+            {
+                "uri": "uploads/images/20261110/202611100102467e57b9881.png",
+                "storage_scope": "platform",
+                "storage_engine": "qcloud",
+                "storage_domain": "https://aigclikeadmin-1304073946.cos.ap-guangzhou.myqcloud.com",
+                "name": "21869f64e6094e34a1f5de63bde96428.png",
+                "role": "",
+                "reference_slot_id": "pv_c35f0e1f-1fa6-4a54-8d4f-41667de9797a",
+                "mention_name": "图片2"
+            },
+            {
+                "uri": "uploads/images/20261110/20261110010245539227265.png",
+                "storage_scope": "platform",
+                "storage_engine": "qcloud",
+                "storage_domain": "https://aigclikeadmin-1304073946.cos.ap-guangzhou.myqcloud.com",
+                "name": "21e24113dfd94ffaabd7d9669a895984.png",
+                "role": "",
+                "reference_slot_id": "pv_48182ebf-4279-4727-8d0d-7aed592493ca",
+                "mention_name": "图片3"
+            }
+        ],
+        "reference_video": null,
+        "product_info": "STERNGLAS 品牌自动机械腕表（表盘标注 AUTOMATIK / ZEITMESSER）；黑色圆形表盘，配白色条形刻度与 12/2/4/6/8/10 数字标记，银色指针；6 点位置设日期显示窗；抛光银色不锈钢表壳，右侧带齿纹表冠，表镜微凸；黑色皮质表带。以上均为图片可见事实，价格、尺寸、防水等级等未在素材中确认，故留空。",
+        "prompt": "竖屏 9:16，总时长 10 秒，按以下顺序拍摄，产品在各镜中保持稳定清晰，无旁白配音，全程仅以极简克制的器乐氛围音衬托精密质感。第 1 镜（0–3 秒）：白色纯净背景，STERNGLAS 腕表正面平置居中，黑盘、银壳、黑皮带完整呈现，镜头缓慢匀速推近（dolly in）聚焦表盘，刻度与指针锐利，产品静止。第 2 镜（3–5 秒）：切至侧面视角，白色背景，腕表侧立，展示抛光表壳轮廓、微凸表镜与右侧齿纹表冠，镜头水平缓慢横移并轻微环绕（track + arc），凸显纤薄线条与侧面刻字，产品固定。第 3 镜（5–8 秒）：场景转为佩戴近景微距，深色衬衫袖口旁，腕表戴于手腕、黑皮带贴合，手腕做极轻微翻转抬升，让光线掠过表镜与表壳边缘，镜头随腕小幅平移，产品自然稳定。第 4 镜（8–10 秒）：回到正面平铺构图，白色背景，腕表居中定格，表盘 STERNGLAS ZEITMESSER / AUTOMATIK 字样与 6 点位日期窗清晰，镜头缓慢拉远（dolly out）留出呼吸空间，收尾稳定，产品静止。",
+        "requirements": "",
+        "template_code": "detail",
+        "language": "中文",
+        "plan": {
+            "data": {
+                "summary": "依据三张商品图规划一条 10 秒 9:16 竖屏短片，围绕 STERNGLAS 自动机械表的表盘设计、侧面纤薄线条与佩戴质感展开，采用‘正面推近—侧面环绕—腕上特写—正面定格’四镜连续结构，全程无旁白、仅以极简氛围音配合，所有事实均来自图片可见信息，未确认参数留空。",
+                "shots": [
+                    {
+                        "id": "shot_1",
+                        "start": 0,
+                        "end": 3,
+                        "description": "白色纯净背景，腕表正面平置居中，黑盘银壳黑皮带完整可见；镜头缓慢匀速推近聚焦表盘，刻度与指针清晰，产品保持静止稳定。"
+                    },
+                    {
+                        "id": "shot_2",
+                        "start": 3,
+                        "end": 5,
+                        "description": "切至侧面视角，白色背景，腕表侧立，展示抛光表壳、微凸表镜与右侧齿纹表冠；镜头水平缓慢横移并轻微环绕，凸显纤薄线条与侧面刻字，产品固定不动。"
+                    },
+                    {
+                        "id": "shot_3",
+                        "start": 5,
+                        "end": 8,
+                        "description": "佩戴近景微距，深色衬衫袖口旁，腕表戴于手腕、黑皮带贴合；手腕极轻微翻转抬升，光线掠过表镜与表壳边缘，镜头随腕小幅平移，产品自然稳定。"
+                    },
+                    {
+                        "id": "shot_4",
+                        "start": 8,
+                        "end": 10,
+                        "description": "回到正面平铺构图，白色背景，腕表居中定格，表盘品牌与 AUTOMATIK 字样及 6 点位日期窗清晰；镜头缓慢拉远留出呼吸空间，收尾稳定，产品静止。"
+                    }
+                ],
+                "duration": 10,
+                "video_prompt": "竖屏 9:16，总时长 10 秒，按以下顺序拍摄，产品在各镜中保持稳定清晰，无旁白配音，全程仅以极简克制的器乐氛围音衬托精密质感。第 1 镜（0–3 秒）：白色纯净背景，STERNGLAS 腕表正面平置居中，黑盘、银壳、黑皮带完整呈现，镜头缓慢匀速推近（dolly in）聚焦表盘，刻度与指针锐利，产品静止。第 2 镜（3–5 秒）：切至侧面视角，白色背景，腕表侧立，展示抛光表壳轮廓、微凸表镜与右侧齿纹表冠，镜头水平缓慢横移并轻微环绕（track + arc），凸显纤薄线条与侧面刻字，产品固定。第 3 镜（5–8 秒）：场景转为佩戴近景微距，深色衬衫袖口旁，腕表戴于手腕、黑皮带贴合，手腕做极轻微翻转抬升，让光线掠过表镜与表壳边缘，镜头随腕小幅平移，产品自然稳定。第 4 镜（8–10 秒）：回到正面平铺构图，白色背景，腕表居中定格，表盘 STERNGLAS ZEITMESSER / AUTOMATIK 字样与 6 点位日期窗清晰，镜头缓慢拉远（dolly out）留出呼吸空间，收尾稳定，产品静止。",
+                "selling_points": [
+                    {
+                        "id": "point_1",
+                        "label": "自动机械机芯标识，表盘印有 AUTOMATIK 字样",
+                        "source_slots": [
+                            "pv_15ad8ee3-2c77-4ed9-a885-b881a5386e37",
+                            "pv_48182ebf-4279-4727-8d0d-7aed592493ca"
+                        ]
+                    },
+                    {
+                        "id": "point_2",
+                        "label": "简约黑色表盘与高对比白色刻度、指针布局",
+                        "source_slots": [
+                            "pv_15ad8ee3-2c77-4ed9-a885-b881a5386e37",
+                            "pv_48182ebf-4279-4727-8d0d-7aed592493ca"
+                        ]
+                    },
+                    {
+                        "id": "point_3",
+                        "label": "6 点位日期显示窗，兼顾读时与实用信息",
+                        "source_slots": [
+                            "pv_15ad8ee3-2c77-4ed9-a885-b881a5386e37",
+                            "pv_48182ebf-4279-4727-8d0d-7aed592493ca"
+                        ]
+                    },
+                    {
+                        "id": "point_4",
+                        "label": "抛光不锈钢表壳与微凸表镜的纤薄侧面线条",
+                        "source_slots": [
+                            "pv_c35f0e1f-1fa6-4a54-8d4f-41667de9797a"
+                        ]
+                    },
+                    {
+                        "id": "point_5",
+                        "label": "黑色皮质表带的佩戴贴合质感",
+                        "source_slots": [
+                            "pv_15ad8ee3-2c77-4ed9-a885-b881a5386e37",
+                            "pv_48182ebf-4279-4727-8d0d-7aed592493ca"
+                        ]
+                    }
+                ]
+            },
+            "input_key": "8e5ea50727223139e4b142b29e87fe1cebc554bbee2b1d6725c5f70d1aee6aac"
+        },
+        "reference_analysis": null,
+        "analysis_model_id": "",
+        "planning_model_id": "",
+        "video_selection": {
+            "model_id": "",
+            "quality": "",
+            "ratio": "9:16",
+            "duration": 10
+        }
+    },
+    "media": {
+        "uri": "uploads/aigc_video/20261110/20261110095953edbea2484.mp4",
+        "storage_scope": "platform",
+        "storage_engine": "qcloud",
+        "storage_domain": "https://aigclikeadmin-1304073946.cos.ap-guangzhou.myqcloud.com",
+        "width": 720,
+        "height": 1280,
+        "duration": 10
+    },
+    "retained_media": [
+        {
+            "uri": "uploads/images/20261110/202611100102469cdc98051.png",
+            "storage_scope": "platform",
+            "storage_engine": "qcloud",
+            "storage_domain": "https://aigclikeadmin-1304073946.cos.ap-guangzhou.myqcloud.com",
+            "name": "d58ea6dc41284075b01f6e01624900bf.png",
+            "role": "",
+            "reference_slot_id": "pv_15ad8ee3-2c77-4ed9-a885-b881a5386e37",
+            "mention_name": "图片1"
+        },
+        {
+            "uri": "uploads/images/20261110/202611100102467e57b9881.png",
+            "storage_scope": "platform",
+            "storage_engine": "qcloud",
+            "storage_domain": "https://aigclikeadmin-1304073946.cos.ap-guangzhou.myqcloud.com",
+            "name": "21869f64e6094e34a1f5de63bde96428.png",
+            "role": "",
+            "reference_slot_id": "pv_c35f0e1f-1fa6-4a54-8d4f-41667de9797a",
+            "mention_name": "图片2"
+        },
+        {
+            "uri": "uploads/images/20261110/20261110010245539227265.png",
+            "storage_scope": "platform",
+            "storage_engine": "qcloud",
+            "storage_domain": "https://aigclikeadmin-1304073946.cos.ap-guangzhou.myqcloud.com",
+            "name": "21e24113dfd94ffaabd7d9669a895984.png",
+            "role": "",
+            "reference_slot_id": "pv_48182ebf-4279-4727-8d0d-7aed592493ca",
+            "mention_name": "图片3"
+        },
+        {
+            "uri": "uploads/aigc_video/20261110/20261110095953edbea2484.mp4",
+            "storage_scope": "platform",
+            "storage_engine": "qcloud",
+            "storage_domain": "https://aigclikeadmin-1304073946.cos.ap-guangzhou.myqcloud.com",
+            "width": 720,
+            "height": 1280,
+            "duration": 10
+        }
+    ]
+}

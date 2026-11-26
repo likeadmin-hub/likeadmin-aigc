@@ -1,0 +1,341 @@
+{
+    "schema_version": 1,
+    "key": "builtin-8a4709cf197a67ed2055a35b",
+    "version": 1,
+    "title": "商品视频灵感",
+    "status": 1,
+    "deleted": false,
+    "sort": 0,
+    "model_name": "Muse Video",
+    "model_identity": {
+        "resource_type": "model",
+        "source_code": "likeadmin_api",
+        "upstream_resource_key": "model:muse-video:xAIQ",
+        "upstream_app_code": ""
+    },
+    "configuration": {
+        "template_version": "1.0.0",
+        "normal_source": "prompt",
+        "reference_mode": "reference",
+        "market_region": "",
+        "audio": null,
+        "analyze_chapters": true,
+        "prompt_review_images": [
+            "uploads/aigc_image/20261110/2026111013594263d460299.jpg",
+            "uploads/aigc_image/20261110/20261110135942c5ccb1679.jpg",
+            "uploads/aigc_image/20261110/20261110135943021556446.jpg",
+            "uploads/aigc_image/20261110/20261110135943afedb1281.jpg",
+            "uploads/aigc_image/20261110/20261110135944d7e774590.jpg",
+            "uploads/aigc_image/20261110/20261110135944ec4a11097.jpg",
+            "uploads/aigc_image/20261110/20261110135945fb8a11731.jpg",
+            "uploads/aigc_image/20261110/2026111013594697cf71659.jpg"
+        ],
+        "generation_assets": [],
+        "selected_mentions": [
+            {
+                "name": "图片2",
+                "type": "image",
+                "reference_slot_id": "pv_2e0650ac-7660-4510-9548-ecfcab17c787",
+                "uri": "uploads/aigc_image/20261110/2026111013594263d460299.jpg"
+            },
+            {
+                "name": "图片3",
+                "type": "image",
+                "reference_slot_id": "pv_46632727-dcae-432d-aa3a-2ed2617788b9",
+                "uri": "uploads/aigc_image/20261110/20261110135942c5ccb1679.jpg"
+            },
+            {
+                "name": "图片4",
+                "type": "image",
+                "reference_slot_id": "pv_6dc988c9-de8c-4802-a8eb-e2ff4a447ad5",
+                "uri": "uploads/aigc_image/20261110/20261110135943021556446.jpg"
+            },
+            {
+                "name": "图片5",
+                "type": "image",
+                "reference_slot_id": "pv_82ad2cc7-ae87-477f-b7c5-ed3898a0b432",
+                "uri": "uploads/aigc_image/20261110/20261110135943afedb1281.jpg"
+            },
+            {
+                "name": "图片6",
+                "type": "image",
+                "reference_slot_id": "pv_82020e0d-7626-4531-9c51-e9e30ad00a0b",
+                "uri": "uploads/aigc_image/20261110/20261110135944d7e774590.jpg"
+            },
+            {
+                "name": "图片7",
+                "type": "image",
+                "reference_slot_id": "pv_00919a0d-e200-4330-901e-456f3550b525",
+                "uri": "uploads/aigc_image/20261110/20261110135944ec4a11097.jpg"
+            },
+            {
+                "name": "图片8",
+                "type": "image",
+                "reference_slot_id": "pv_09998c50-4025-4e9a-9a01-463bb14ec89d",
+                "uri": "uploads/aigc_image/20261110/20261110135945fb8a11731.jpg"
+            },
+            {
+                "name": "图片9",
+                "type": "image",
+                "reference_slot_id": "pv_2f2b2fa9-35ca-48eb-8ecc-4cadfc83f3e1",
+                "uri": "uploads/aigc_image/20261110/2026111013594697cf71659.jpg"
+            }
+        ],
+        "mode": "advanced",
+        "images": [
+            {
+                "uri": "uploads/aigc_image/20261110/2026111013594263d460299.jpg",
+                "storage_scope": "platform",
+                "storage_engine": "qcloud",
+                "storage_domain": "https://aigclikeadmin-1304073946.cos.ap-guangzhou.myqcloud.com",
+                "name": "2026111013594263d460299.jpg",
+                "role": "",
+                "reference_slot_id": "pv_2e0650ac-7660-4510-9548-ecfcab17c787",
+                "mention_name": "图片2"
+            },
+            {
+                "uri": "uploads/aigc_image/20261110/20261110135942c5ccb1679.jpg",
+                "storage_scope": "platform",
+                "storage_engine": "qcloud",
+                "storage_domain": "https://aigclikeadmin-1304073946.cos.ap-guangzhou.myqcloud.com",
+                "name": "20261110135942c5ccb1679.jpg",
+                "role": "",
+                "reference_slot_id": "pv_46632727-dcae-432d-aa3a-2ed2617788b9",
+                "mention_name": "图片3"
+            },
+            {
+                "uri": "uploads/aigc_image/20261110/20261110135943021556446.jpg",
+                "storage_scope": "platform",
+                "storage_engine": "qcloud",
+                "storage_domain": "https://aigclikeadmin-1304073946.cos.ap-guangzhou.myqcloud.com",
+                "name": "20261110135943021556446.jpg",
+                "role": "",
+                "reference_slot_id": "pv_6dc988c9-de8c-4802-a8eb-e2ff4a447ad5",
+                "mention_name": "图片4"
+            },
+            {
+                "uri": "uploads/aigc_image/20261110/20261110135943afedb1281.jpg",
+                "storage_scope": "platform",
+                "storage_engine": "qcloud",
+                "storage_domain": "https://aigclikeadmin-1304073946.cos.ap-guangzhou.myqcloud.com",
+                "name": "20261110135943afedb1281.jpg",
+                "role": "",
+                "reference_slot_id": "pv_82ad2cc7-ae87-477f-b7c5-ed3898a0b432",
+                "mention_name": "图片5"
+            },
+            {
+                "uri": "uploads/aigc_image/20261110/20261110135944d7e774590.jpg",
+                "storage_scope": "platform",
+                "storage_engine": "qcloud",
+                "storage_domain": "https://aigclikeadmin-1304073946.cos.ap-guangzhou.myqcloud.com",
+                "name": "20261110135944d7e774590.jpg",
+                "role": "",
+                "reference_slot_id": "pv_82020e0d-7626-4531-9c51-e9e30ad00a0b",
+                "mention_name": "图片6"
+            },
+            {
+                "uri": "uploads/aigc_image/20261110/20261110135944ec4a11097.jpg",
+                "storage_scope": "platform",
+                "storage_engine": "qcloud",
+                "storage_domain": "https://aigclikeadmin-1304073946.cos.ap-guangzhou.myqcloud.com",
+                "name": "20261110135944ec4a11097.jpg",
+                "role": "",
+                "reference_slot_id": "pv_00919a0d-e200-4330-901e-456f3550b525",
+                "mention_name": "图片7"
+            },
+            {
+                "uri": "uploads/aigc_image/20261110/20261110135945fb8a11731.jpg",
+                "storage_scope": "platform",
+                "storage_engine": "qcloud",
+                "storage_domain": "https://aigclikeadmin-1304073946.cos.ap-guangzhou.myqcloud.com",
+                "name": "20261110135945fb8a11731.jpg",
+                "role": "",
+                "reference_slot_id": "pv_09998c50-4025-4e9a-9a01-463bb14ec89d",
+                "mention_name": "图片8"
+            },
+            {
+                "uri": "uploads/aigc_image/20261110/2026111013594697cf71659.jpg",
+                "storage_scope": "platform",
+                "storage_engine": "qcloud",
+                "storage_domain": "https://aigclikeadmin-1304073946.cos.ap-guangzhou.myqcloud.com",
+                "name": "2026111013594697cf71659.jpg",
+                "role": "",
+                "reference_slot_id": "pv_2f2b2fa9-35ca-48eb-8ecc-4cadfc83f3e1",
+                "mention_name": "图片9"
+            }
+        ],
+        "reference_video": null,
+        "product_info": "【商品事实】\n[商品名称]：Red Light Therapy for Eyes, 3 Minutes Red Light Eye Mask\n[商品类别]：美容仪器/眼部护理设备\n[可辨认品牌]：Amifiy\n[商品类型]：LED红光眼罩\n[已确认的展示重点]：4波长红光照射、3分钟定时自动关闭、柔性硅胶材质、USB充电设计\n[配色]：浅蓝色主体，白色绑带\n[材质与表面质感]：柔性硅胶 (Flexible Silicone)\n[外形与结构]：贴合面部轮廓的眼罩形状，左右各有一个椭圆形透光孔，两侧带有控制模块，两端连接可调节弹性绑带\n[清晰可读文字]：Amifiy, MEET YOUR NEW EYE RITUAL., Advanced LED Light Therapy, Designed for Your Eyes., THE EYES HAVE IT., Targeted Light Care for Your Most Expressive Feature., FOUR WAVELENGTHS., ONE BEAUTY RITUAL., 605nm Amber Light, 633nm Red Light, 660nm Deep Red Light, 830nm Near-Infrared Light, SOFTNESS YOU CAN FEEL., Flexible Silicone., THREE MINUTES. JUST FOR YOU., 03 MINUTES, BEAUTY IS A DAILY RITUAL., …\n[标识特征]：Amifiy\n[正面细节]：正面有两个椭圆形开孔，开孔周围有红光透出，中间下凹以贴合鼻梁轮廓\n[侧面细节]：两侧有浅蓝色模块，左侧带有 'Amifiy' 字样和物理按键，右侧为平整模块，通过卡扣连接白色编织绑带\n[已确认规格]：12.2 x 3.43 x 0.2 inches; 13.05 ounces\n[已确认用途]：眼部光疗护理，缓解眼疲劳，日常美容仪式\n[包装信息]：白色长方形纸盒，印有产品渲染图、Amifiy Logo及核心技术说明\n[可见工艺细节]：硅胶边缘圆润光滑，透光孔边缘处理细腻，无明显毛刺\n[图片中的环境]：温馨居家环境、纯色影棚背景、大理石台面\n[图片中的人物]：女性模特佩戴展示\n[商品一致性要点]：Amifiy浅蓝色柔性硅胶LED红光眼罩，带双椭圆透光孔和白色调节绑带\n[依据说明]：商品外观、颜色、结构及文字均来自提供的8张图片；材质、尺寸、功能卖点（如4波长、3分钟定时、充电设计）来自 product_info。图片与文字信息一致，无冲突。未展示内部结构，故相关字段留空。\n【创意建议，非商品事实】\n[适合受众]：关注眼部抗初老、有缓解眼疲劳及黑眼圈需求的都市人群\n[拍摄场景]：舒适放松的居家卧室、精致的梳妆台\n[视觉风格]：柔和、治愈、兼具科技感与生活美学",
+        "prompt": "【整体设置】\n总时长：10秒\n画面比例：9:16\n展示主体：Amifiy浅蓝色LED红光眼罩\n视觉风格：柔和治愈，光影质感突出\n商品一致性：以商品图片和已确认资料为准，保持轮廓、配色、材质与可见文字标识一致；不补造未展示的背面、内部或包装。\n声音：轻柔舒缓的背景音乐，搭配简洁专业的中文旁白\n画面文字：画面文字精简，仅保留核心卖点提示，不遮挡商品主体\n\n【镜头1｜0-3秒】\n画面：模特在柔和的室内光线下，将浅蓝色眼罩戴好并按下侧边按键，眼罩透光孔随即亮起温暖红光。；景别与视角：近景，平视角度；运镜：缓慢推镜头 (Push in)；场景：温馨的卧室背景，床品或沙发虚化；光线：暖色调环境光，突出眼罩透出的红光；对焦与质感：模特面部及发光的眼罩；声音：轻柔音乐起。旁白：“每天三分钟，给双眼做个专属SPA。”\n\n【镜头2｜3-7秒】\n画面：眼罩平放在大理石纹理台面上，镜头环绕展示其硅胶质感与两侧结构。随后画面叠加四种波长（琥珀、红、深红、近红外）的光效演示。；景别与视角：特写，微俯视；运镜：弧形环绕运镜 (Arc shot)；场景：干净的台面，旁边点缀丝质布料；光线：侧逆光勾勒硅胶边缘轮廓，底部补红光；对焦与质感：眼罩表面的纹理、透光孔及 Amifiy Logo；声音：旁白：“Amifiy红光眼罩，四波长精准护理，柔性硅胶零压贴合。”\n\n【镜头3｜7-10秒】\n画面：快速展示产品全家福：包装盒、眼罩主体、两条备用白色绑带、USB充电线及说明书。最后定格在眼罩全貌。；景别与视角：全景转中景；运镜：固定机位，轻微缩放 (Zoom out to in)；场景：明亮均匀的影棚纯色背景；光线：高调柔光，无明显阴影；对焦与质感：所有配件清晰可见，排版整洁；声音：旁白：“充电式设计，开启你的日常眼部护理仪式。” 音乐渐弱收尾。",
+        "requirements": "",
+        "template_code": "detail",
+        "language": "中文",
+        "plan": {
+            "data": {
+                "shots": [
+                    {
+                        "id": "shot_1",
+                        "end": 3,
+                        "start": 0,
+                        "description": "画面：模特在柔和的室内光线下，将浅蓝色眼罩戴好并按下侧边按键，眼罩透光孔随即亮起温暖红光。；景别与视角：近景，平视角度；运镜：缓慢推镜头 (Push in)；场景：温馨的卧室背景，床品或沙发虚化；光线：暖色调环境光，突出眼罩透出的红光；对焦与质感：模特面部及发光的眼罩；声音：轻柔音乐起。旁白：“每天三分钟，给双眼做个专属SPA。”"
+                    },
+                    {
+                        "id": "shot_2",
+                        "end": 7,
+                        "start": 3,
+                        "description": "画面：眼罩平放在大理石纹理台面上，镜头环绕展示其硅胶质感与两侧结构。随后画面叠加四种波长（琥珀、红、深红、近红外）的光效演示。；景别与视角：特写，微俯视；运镜：弧形环绕运镜 (Arc shot)；场景：干净的台面，旁边点缀丝质布料；光线：侧逆光勾勒硅胶边缘轮廓，底部补红光；对焦与质感：眼罩表面的纹理、透光孔及 Amifiy Logo；声音：旁白：“Amifiy红光眼罩，四波长精准护理，柔性硅胶零压贴合。”"
+                    },
+                    {
+                        "id": "shot_3",
+                        "end": 10,
+                        "start": 7,
+                        "description": "画面：快速展示产品全家福：包装盒、眼罩主体、两条备用白色绑带、USB充电线及说明书。最后定格在眼罩全貌。；景别与视角：全景转中景；运镜：固定机位，轻微缩放 (Zoom out to in)；场景：明亮均匀的影棚纯色背景；光线：高调柔光，无明显阴影；对焦与质感：所有配件清晰可见，排版整洁；声音：旁白：“充电式设计，开启你的日常眼部护理仪式。” 音乐渐弱收尾。"
+                    }
+                ],
+                "summary": "本视频旨在展示 Amifiy LED红光眼罩的核心卖点与使用场景。通过模特佩戴展示其贴合度与红光效果，结合特写镜头强调其柔性硅胶材质与四波长技术，最后展示全套配件，传递‘每天三分钟轻松护眼’的理念。",
+                "duration": 10,
+                "video_prompt": "【整体设置】\n总时长：10秒\n画面比例：9:16\n展示主体：Amifiy浅蓝色LED红光眼罩\n视觉风格：柔和治愈，光影质感突出\n商品一致性：以商品图片和已确认资料为准，保持轮廓、配色、材质与可见文字标识一致；不补造未展示的背面、内部或包装。\n声音：轻柔舒缓的背景音乐，搭配简洁专业的中文旁白\n画面文字：画面文字精简，仅保留核心卖点提示，不遮挡商品主体\n\n【镜头1｜0-3秒】\n画面：模特在柔和的室内光线下，将浅蓝色眼罩戴好并按下侧边按键，眼罩透光孔随即亮起温暖红光。；景别与视角：近景，平视角度；运镜：缓慢推镜头 (Push in)；场景：温馨的卧室背景，床品或沙发虚化；光线：暖色调环境光，突出眼罩透出的红光；对焦与质感：模特面部及发光的眼罩；声音：轻柔音乐起。旁白：“每天三分钟，给双眼做个专属SPA。”\n\n【镜头2｜3-7秒】\n画面：眼罩平放在大理石纹理台面上，镜头环绕展示其硅胶质感与两侧结构。随后画面叠加四种波长（琥珀、红、深红、近红外）的光效演示。；景别与视角：特写，微俯视；运镜：弧形环绕运镜 (Arc shot)；场景：干净的台面，旁边点缀丝质布料；光线：侧逆光勾勒硅胶边缘轮廓，底部补红光；对焦与质感：眼罩表面的纹理、透光孔及 Amifiy Logo；声音：旁白：“Amifiy红光眼罩，四波长精准护理，柔性硅胶零压贴合。”\n\n【镜头3｜7-10秒】\n画面：快速展示产品全家福：包装盒、眼罩主体、两条备用白色绑带、USB充电线及说明书。最后定格在眼罩全貌。；景别与视角：全景转中景；运镜：固定机位，轻微缩放 (Zoom out to in)；场景：明亮均匀的影棚纯色背景；光线：高调柔光，无明显阴影；对焦与质感：所有配件清晰可见，排版整洁；声音：旁白：“充电式设计，开启你的日常眼部护理仪式。” 音乐渐弱收尾。",
+                "selling_points": [
+                    {
+                        "id": "point_1",
+                        "label": "4波长红光精准护理 (605nm/633nm/660nm/830nm)",
+                        "source_slots": [
+                            "pv_82ad2cc7-ae87-477f-b7c5-ed3898a0b432"
+                        ]
+                    },
+                    {
+                        "id": "point_2",
+                        "label": "3分钟定时自动关闭，一键操作",
+                        "source_slots": [
+                            "pv_00919a0d-e200-4330-901e-456f3550b525"
+                        ]
+                    },
+                    {
+                        "id": "point_3",
+                        "label": "柔性硅胶材质，零压贴合面部轮廓",
+                        "source_slots": [
+                            "pv_82020e0d-7626-4531-9c51-e9e30ad00a0b"
+                        ]
+                    },
+                    {
+                        "id": "point_4",
+                        "label": "便携充电式设计，含替换绑带与说明书",
+                        "source_slots": [
+                            "pv_2f2b2fa9-35ca-48eb-8ecc-4cadfc83f3e1"
+                        ]
+                    }
+                ]
+            },
+            "input_key": "b22486648088576f6edaedd6913687ab89641930d029caecce297d8c9cebea18"
+        },
+        "reference_analysis": null,
+        "analysis_model_id": "",
+        "planning_model_id": "",
+        "video_selection": {
+            "model_id": "",
+            "quality": "",
+            "ratio": "9:16",
+            "duration": 10
+        }
+    },
+    "media": {
+        "uri": "uploads/aigc_video/20261110/20261110140510ff6d17281.mp4",
+        "storage_scope": "platform",
+        "storage_engine": "qcloud",
+        "storage_domain": "https://aigclikeadmin-1304073946.cos.ap-guangzhou.myqcloud.com",
+        "width": 720,
+        "height": 1280,
+        "duration": 10
+    },
+    "retained_media": [
+        {
+            "uri": "uploads/aigc_image/20261110/2026111013594263d460299.jpg",
+            "storage_scope": "platform",
+            "storage_engine": "qcloud",
+            "storage_domain": "https://aigclikeadmin-1304073946.cos.ap-guangzhou.myqcloud.com",
+            "name": "2026111013594263d460299.jpg",
+            "role": "",
+            "reference_slot_id": "pv_2e0650ac-7660-4510-9548-ecfcab17c787",
+            "mention_name": "图片2"
+        },
+        {
+            "uri": "uploads/aigc_image/20261110/20261110135942c5ccb1679.jpg",
+            "storage_scope": "platform",
+            "storage_engine": "qcloud",
+            "storage_domain": "https://aigclikeadmin-1304073946.cos.ap-guangzhou.myqcloud.com",
+            "name": "20261110135942c5ccb1679.jpg",
+            "role": "",
+            "reference_slot_id": "pv_46632727-dcae-432d-aa3a-2ed2617788b9",
+            "mention_name": "图片3"
+        },
+        {
+            "uri": "uploads/aigc_image/20261110/20261110135943021556446.jpg",
+            "storage_scope": "platform",
+            "storage_engine": "qcloud",
+            "storage_domain": "https://aigclikeadmin-1304073946.cos.ap-guangzhou.myqcloud.com",
+            "name": "20261110135943021556446.jpg",
+            "role": "",
+            "reference_slot_id": "pv_6dc988c9-de8c-4802-a8eb-e2ff4a447ad5",
+            "mention_name": "图片4"
+        },
+        {
+            "uri": "uploads/aigc_image/20261110/20261110135943afedb1281.jpg",
+            "storage_scope": "platform",
+            "storage_engine": "qcloud",
+            "storage_domain": "https://aigclikeadmin-1304073946.cos.ap-guangzhou.myqcloud.com",
+            "name": "20261110135943afedb1281.jpg",
+            "role": "",
+            "reference_slot_id": "pv_82ad2cc7-ae87-477f-b7c5-ed3898a0b432",
+            "mention_name": "图片5"
+        },
+        {
+            "uri": "uploads/aigc_image/20261110/20261110135944d7e774590.jpg",
+            "storage_scope": "platform",
+            "storage_engine": "qcloud",
+            "storage_domain": "https://aigclikeadmin-1304073946.cos.ap-guangzhou.myqcloud.com",
+            "name": "20261110135944d7e774590.jpg",
+            "role": "",
+            "reference_slot_id": "pv_82020e0d-7626-4531-9c51-e9e30ad00a0b",
+            "mention_name": "图片6"
+        },
+        {
+            "uri": "uploads/aigc_image/20261110/20261110135944ec4a11097.jpg",
+            "storage_scope": "platform",
+            "storage_engine": "qcloud",
+            "storage_domain": "https://aigclikeadmin-1304073946.cos.ap-guangzhou.myqcloud.com",
+            "name": "20261110135944ec4a11097.jpg",
+            "role": "",
+            "reference_slot_id": "pv_00919a0d-e200-4330-901e-456f3550b525",
+            "mention_name": "图片7"
+        },
+        {
+            "uri": "uploads/aigc_image/20261110/20261110135945fb8a11731.jpg",
+            "storage_scope": "platform",
+            "storage_engine": "qcloud",
+            "storage_domain": "https://aigclikeadmin-1304073946.cos.ap-guangzhou.myqcloud.com",
+            "name": "20261110135945fb8a11731.jpg",
+            "role": "",
+            "reference_slot_id": "pv_09998c50-4025-4e9a-9a01-463bb14ec89d",
+            "mention_name": "图片8"
+        },
+        {
+            "uri": "uploads/aigc_image/20261110/2026111013594697cf71659.jpg",
+            "storage_scope": "platform",
+            "storage_engine": "qcloud",
+            "storage_domain": "https://aigclikeadmin-1304073946.cos.ap-guangzhou.myqcloud.com",
+            "name": "2026111013594697cf71659.jpg",
+            "role": "",
+            "reference_slot_id": "pv_2f2b2fa9-35ca-48eb-8ecc-4cadfc83f3e1",
+            "mention_name": "图片9"
+        },
+        {
+            "uri": "uploads/aigc_video/20261110/20261110140510ff6d17281.mp4",
+            "storage_scope": "platform",
+            "storage_engine": "qcloud",
+            "storage_domain": "https://aigclikeadmin-1304073946.cos.ap-guangzhou.myqcloud.com",
+            "width": 720,
+            "height": 1280,
+            "duration": 10
+        }
+    ]
+}
