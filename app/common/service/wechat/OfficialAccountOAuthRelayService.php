@@ -73,7 +73,7 @@ class OfficialAccountOAuthRelayService
                 'user' => $user,
                 'expires_at' => $this->now() + self::TICKET_TTL,
             ], self::TICKET_TTL);
-            return $this->returnUrl($context['return_url'], $ticket, $state);
+            return $this->returnUrl($context['return_url'], $ticket, $state, (int)$context['tenant_id']);
         });
     }
 
@@ -196,7 +196,7 @@ HTML;
         return $scheme . '://' . strtolower($p['host']) . (($scheme === 'https' && $port === 443) || ($scheme === 'http' && $port === 80) ? '' : ':' . $port);
     }
 
-    private function returnUrl(string $url, string $ticket, string $state): string
+    private function returnUrl(string $url, string $ticket, string $state, int $tenantId): string
     {
         $pieces = explode('#', $url, 2);
         $hashRoute = isset($pieces[1]) && str_starts_with($pieces[1], '/');
@@ -208,7 +208,8 @@ HTML;
             $query = array_merge($query, $extra);
             return $p[0] . ($query ? '?' . http_build_query($query, '', '&', PHP_QUERY_RFC3986) : '');
         };
-        $base = $merge($pieces[0], $hashRoute ? [] : $add);
+        // The tenant web server resolves the outer request before the H5 router sees a fragment.
+        $base = $merge($pieces[0], ['tenant_id' => $tenantId] + ($hashRoute ? [] : $add));
         return $base . (isset($pieces[1]) ? '#' . ($hashRoute ? $merge($pieces[1], $add) : $pieces[1]) : '');
     }
 

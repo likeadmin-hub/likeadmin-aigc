@@ -92,6 +92,17 @@ parse_str(explode('?', (string)parse_url($target, PHP_URL_FRAGMENT), 2)[1], $out
 check($out['scene'] === 'bind' && str_starts_with($out['code'], 'woa_') && $out['state'] !== 'old', 'Hash routing preserves the scene and replaces stale auth parameters');
 check(parse_url($target, PHP_URL_QUERY) === 'tenant_id=7', 'Hash routing preserves the top-level tenant context');
 
+foreach ([
+    'https://tenant.example.com/mobile/pages/login/login?scene=login',
+    'https://tenant.example.com/mobile/#/pages/login/login?scene=login',
+] as $return) {
+    $s = new RelayFixture();
+    [, $state] = begin($s, $return);
+    $target = $s->complete($state, 'wx-code', $state, 'https://platform.example.com');
+    parse_str((string)parse_url($target, PHP_URL_QUERY), $outer);
+    check(($outer['tenant_id'] ?? '') === '7', 'A cold callback must resolve the tenant before the H5 router starts');
+}
+
 $s = new RelayFixture();
 [$r, $state] = begin($s);
 $s->clock += 601;

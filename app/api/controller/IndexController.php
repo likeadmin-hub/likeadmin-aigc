@@ -87,7 +87,7 @@ class IndexController extends BaseApiController
     {
         $type = $this->request->get('type/d');
         $result = IndexLogic::getDecorate($type);
-        return $this->data($result);
+        return $this->data($result)->header(['Cache-Control' => 'private, no-store']);
     }
 
 

@@ -52,13 +52,10 @@ class IndexLogic extends BaseLogic
         if (!in_array($channel, ['h5', 'mp_weixin'], true)) {
             $channel = 'h5';
         }
-        $request = request();
-        $tenantId = (int)$request->tenantId;
-        $userId = $tenantId > 0 && (int)($request->userInfo['tenant_id'] ?? 0) === $tenantId
-            ? (int)$request->userId
-            : 0;
+        $tenantId = (int)request()->tenantId;
         $decoratePage = DecorateTemplateService::activePublishedPage(
-            $tenantId, DecorateTemplateService::TERMINAL_MOBILE, 'home', 1, $channel, context: ['user_id' => $userId]
+            $tenantId, DecorateTemplateService::TERMINAL_MOBILE, 'home', 1, $channel,
+            context: ['user_id' => self::currentTenantUserId($tenantId)]
         );
 
         // 首页文章
@@ -120,7 +117,19 @@ class IndexLogic extends BaseLogic
         $preview = request()->get('preview/d', 0) === 1;
         $templateId = request()->get('template_id/d', 0);
         $pageId = request()->get('page_id/d', 0);
-        return DecorateTemplateService::activePublishedPage((int)request()->tenantId, $terminal, $pageCode, (int)$type, $channel, $preview, $templateId, $pageId);
+        $tenantId = (int)request()->tenantId;
+        return DecorateTemplateService::activePublishedPage(
+            $tenantId, $terminal, $pageCode, (int)$type, $channel, $preview, $templateId, $pageId,
+            context: ['user_id' => self::currentTenantUserId($tenantId)]
+        );
+    }
+
+    private static function currentTenantUserId(int $tenantId): int
+    {
+        $request = request();
+        return $tenantId > 0 && (int)($request->userInfo['tenant_id'] ?? 0) === $tenantId
+            ? (int)$request->userId
+            : 0;
     }
 
 
