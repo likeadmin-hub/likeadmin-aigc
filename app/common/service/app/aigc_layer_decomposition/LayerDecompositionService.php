@@ -20,7 +20,10 @@ final class LayerDecompositionService
         $display = AppDisplayConfigService::detail($tenant, Market::APP);
         $code = self::configuredModel($display);
         $catalog = Market::catalog($tenant, $admin ? null : $code);
-        $sizes = static fn(array $rows) => array_values(array_map(static fn($row) => ['value'=>$row['value']], $rows));
+        $sizes = static function (array $rows): array {
+            $options = \app\common\service\power\MarketHealth::attachOptions($rows);
+            return array_values(array_map(static fn(array $row): array => array_intersect_key($row, ['value' => true, 'health_24h' => true]), $options));
+        };
         $data = [
             'model' => Market::profile($code),
             'sizes' => $sizes($catalog[$code] ?? []),

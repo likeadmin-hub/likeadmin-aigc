@@ -1,7 +1,7 @@
 <?php
 namespace app\common\service\open_platform;
 
-use app\common\service\power\{PowerMarketService,TenantPowerMarketService};
+use app\common\service\power\{MarketHealth,PowerMarketService,TenantPowerMarketService};
 
 /** Live, read-only references. Discovery does not create contracts or authorize calls. */
 final class OpenDocumentationCatalog
@@ -13,6 +13,8 @@ final class OpenDocumentationCatalog
         $byProduct=[];$byTool=[];
         foreach($published as $row){if($row['kind']==='market')$byProduct[(int)$row['product_id']][]=$row;else $byTool[$row['method'].' '.$row['path']]=$row;}
         $products=TenantPowerMarketService::documentationProducts($tenantId);$modelCounts=[];
+        $healthOptions = array_map(static fn(array $product): array => ['market_product_id' => (int)$product['id']], $products);
+        $healthByProduct = array_column(MarketHealth::attachOptions($healthOptions), 'health_24h', 'market_product_id');
         foreach($products as $product)if($product['resource_type']==='model')$modelCounts[$product['upstream_model_code']]=($modelCounts[$product['upstream_model_code']]??0)+1;
         $entries=[];
         foreach($products as $product){
@@ -44,6 +46,7 @@ final class OpenDocumentationCatalog
                 $first['protocol_label']=['openai_chat'=>'Chat Completions','openai_completions'=>'Completions','openai_responses'=>'Responses','anthropic_messages'=>'Messages','gemini_contents'=>'Gemini','model_task'=>'异步任务','application_api'=>'应用接口'][$definition['protocol']??'']??'';
                 $first['section']=$model?'模型 API':'应用 API';$first['category']=$category;$first['group']=self::text($group);$first['model']=$compiled['model_code'];
                 $first['x-catalog-entry']=true;$first['x-product-id']=$id;$first['x-api-selected']=$selected;
+                if (isset($healthByProduct[$id])) $first['x-market-health-24h'] = $healthByProduct[$id];
                 $first['x-contract-variants']=$variants;$first['x-prices']=array_map(static fn($sku)=>['sku_key'=>$sku['sku_key'],'title'=>(string)($sku['title']??''),'price'=>(float)$sku['sale_points'],'unit'=>$sku['usage_unit'],'unit_label'=>$model&&($product['model_type']??'')==='image'&&$sku['usage_unit']==='per_call'?'成功图片':'','unit_size'=>(float)$sku['usage_unit_size'],'sale_status'=>(int)$sku['sale_status']===1]+(isset($sku['token_rates']) ? ['effective_rate_config'=>$sku['token_rates']['sale']] : [])+OpenNativeImageItems::publicPrices($sku)+array_intersect_key($sku,array_flip(['billing_basis','bills_reference_images'])),$product['skus']);
                 $entries[]=self::sanitize($first);
             }

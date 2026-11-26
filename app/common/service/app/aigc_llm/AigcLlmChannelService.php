@@ -7,6 +7,7 @@ use app\common\model\app\aigc_llm\AigcLlmModel;
 use app\common\service\app\UpstreamPricingService;
 use app\common\service\power\MarketTextModelRuntimeService;
 use app\common\service\power\MarketGenerationCatalogService;
+use app\common\service\power\MarketHealth;
 use Exception;
 
 class AigcLlmChannelService
@@ -18,7 +19,7 @@ class AigcLlmChannelService
         $catalog = MarketGenerationCatalogService::options($tenantId, 'text');
         return [
             'channels' => self::marketUserChannels($marketModels),
-            'models' => $marketModels,
+            'models' => MarketHealth::attachOptions($marketModels),
             'applications' => $catalog['applications'],
             'unavailable_applications' => $catalog['unavailable_applications'],
             'generation_type' => 'text',

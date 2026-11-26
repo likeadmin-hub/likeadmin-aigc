@@ -38,16 +38,16 @@ class MarketTextModelRuntimeService
 
     public static function textOptions(int $tenantId): array
     {
-        return self::options($tenantId, false);
+        return MarketHealth::attachOptions(self::options($tenantId, false));
     }
 
     public static function mediaOptions(int $tenantId, bool $video = false): array
     {
-        return array_values(array_filter(self::options($tenantId, true), static function(array $model) use ($video): bool {
+        return MarketHealth::attachOptions(array_values(array_filter(self::options($tenantId, true), static function(array $model) use ($video): bool {
             if (!$video) return true;
             foreach ($model['capability_profile']['fields'] ?? [] as $field) if ($field['key'] === 'supports_video') return $field['value'] === true;
             return false;
-        }));
+        })));
     }
 
     public static function modelGroups(int $tenantId): array
@@ -615,7 +615,7 @@ class MarketTextModelRuntimeService
     /** @return array<string, mixed> */
     private static function group(int $tenantId, string $key, string $label, bool $vision): array
     {
-        $options = self::options($tenantId, $vision);
+        $options = MarketHealth::attachOptions(self::options($tenantId, $vision));
         return [
             'key' => $key,
             'label' => $label,

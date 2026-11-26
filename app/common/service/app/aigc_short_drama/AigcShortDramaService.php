@@ -16150,6 +16150,7 @@ class AigcShortDramaService
             'marketing_tags' => $model['marketing_tags'] ?? [],
             'channel_source' => $model['channel_source'] ?? 'unknown',
             'channel_source_label' => $model['channel_source_label'] ?? '其他渠道',
+            'health_24h' => $model['health_24h'] ?? null,
             'name' => (string)($model['display_name'] ?? $model['name'] ?? $id),
             'description' => (string)($model['description'] ?? ''),
             'tenant_input_unit_price' => $model['tenant_input_unit_price'] ?? null,

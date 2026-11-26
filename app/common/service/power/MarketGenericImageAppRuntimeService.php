@@ -83,7 +83,7 @@ class MarketGenericImageAppRuntimeService
                 ];
             }
         }
-        return MarketModelSource::officialFirst($options);
+        return MarketHealth::attachOptions(MarketModelSource::officialFirst($options));
     }
 
     public static function isSelection(array $selection): bool

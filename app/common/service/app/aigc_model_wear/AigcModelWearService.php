@@ -647,6 +647,7 @@ class AigcModelWearService
                     'code' => $modelId,
                     'name' => (string)($model['name'] ?? $modelId),
                     'channel_source' => $model['channel_source'] ?? 'unknown',
+                    'health_24h' => $model['health_24h'] ?? null,
                     'marketing_tags' => $model['marketing_tags'] ?? [],
                     'qualities' => array_values($qualities),
                 ];
@@ -864,6 +865,7 @@ class AigcModelWearService
                 'code' => (string)$channel['code'],
                 'name' => (string)$channel['name'],
                 'channel_source' => $channel['channel_source'] ?? 'unknown',
+                'health_24h' => $channel['health_24h'] ?? null,
                 'marketing_tags' => $channel['marketing_tags'] ?? [],
                 'qualities' => $qualities,
             ];

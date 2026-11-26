@@ -192,7 +192,7 @@ class MarketImageModelRuntimeService
                 'sort' => (int)$product['id'],
             ];
         }
-        return MarketModelSource::officialFirst($options);
+        return MarketHealth::attachOptions(MarketModelSource::officialFirst($options));
     }
 
     /**

@@ -92,7 +92,7 @@ class MarketSeedSvcAppRuntimeService
                 ];
             }
         }
-        return MarketModelSource::officialFirst($options);
+        return MarketHealth::attachOptions(MarketModelSource::officialFirst($options));
     }
 
     public static function quote(int $tenantId, array $selection, int $quantity = 1): array

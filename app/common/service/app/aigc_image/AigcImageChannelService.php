@@ -7,6 +7,7 @@ use app\common\model\app\aigc_image\AigcImageChannelSpec;
 use app\common\service\app\ChannelSpecPricingSchemaService;
 use app\common\service\power\MarketImageModelRuntimeService;
 use app\common\service\power\MarketGenerationCatalogService;
+use app\common\service\power\MarketHealth;
 use Exception;
 use think\facade\Db;
 
@@ -28,7 +29,7 @@ class AigcImageChannelService
         $defaults = self::defaults($channels);
         $catalog = MarketGenerationCatalogService::options($tenantId, 'image');
         return [
-            'channels' => self::sanitizeChannels($channels, false),
+            'channels' => MarketHealth::attachOptions(self::sanitizeChannels($channels, false)),
             'models' => $catalog['models'],
             'applications' => $catalog['applications'],
             'unavailable_applications' => $catalog['unavailable_applications'],

@@ -96,7 +96,7 @@ class MarketPicLipsyncAppRuntimeService
                 ];
             }
         }
-        return MarketModelSource::officialFirst($options);
+        return MarketHealth::attachOptions(MarketModelSource::officialFirst($options));
     }
 
     /** Use explicit upstream model labels when the catalogue provides them. */

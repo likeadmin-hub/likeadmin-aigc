@@ -36,6 +36,7 @@ final class VideoEnhanceService
             'max_seconds' => $settings['max_seconds'],
             'default_bit_rate' => $settings['default_bit_rate'],
             'allow_link' => $settings['allow_link'],
+            'channel' => $option ? array_intersect_key($option, ['name' => true, 'health_24h' => true]) : null,
         ]);
     }
 

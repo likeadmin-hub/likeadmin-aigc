@@ -338,6 +338,7 @@ class AigcGeoService
                 'sku_id' => (int)($option['market_sku_id'] ?? 0),
                 'api_code' => (string)($option['api_code'] ?? ''),
                 'name' => (string)($option['name'] ?? self::UPSTREAM_APP_CODE),
+                'health_24h' => $option['health_24h'] ?? null,
                 'sku_name' => (string)($option['sku_key'] ?? ''),
                 'unit' => (string)($option['usage_unit'] ?? 'per_call'),
                 'tenant_price' => (float)($option['tenant_unit_price'] ?? 0),

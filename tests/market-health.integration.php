@@ -77,6 +77,15 @@ try {
     checkHealth($snapshot[$high] === ['calls' => 4, 'successes' => 2, 'failures' => 1], 'rolling window or cross-tenant count mismatch');
     checkHealth(!isset($snapshot[$idle], $snapshot[$idleApi]), 'outside-window calls entered the calculation');
 
+    $options = MarketHealth::attachOptions([
+        'measured' => ['id' => $idle, 'market_product_id' => $high],
+        'app' => ['id' => 'app-code', 'market_product_id' => $idleApi],
+        'legacy' => ['id' => $high],
+    ], $snapshot);
+    checkHealth($options['measured']['health_24h']['rate'] === 66.67, 'option health must follow the marketplace product, independent of its selection ID');
+    checkHealth($options['app']['health_24h']['rate'] === 100.0 && $options['app']['health_24h']['calls'] === 0, 'unused API options show the no-call default');
+    checkHealth(!isset($options['legacy']['health_24h']), 'options without a marketplace identity must not borrow another product rate');
+
     foreach (['desc' => [$perfect, $high, $low, $pending, $idle], 'asc' => [$low, $high, $perfect, $pending, $idle]] as $order => $expected) {
         $platformRows = array_merge($platform($order, 0), $platform($order, 2), $platform($order, 4));
         $tenantRows = [];

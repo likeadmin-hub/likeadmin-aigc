@@ -28,7 +28,7 @@ class MarketFileQaAppRuntimeService
     public static function options(int $tenantId): array
     {
         $market = self::resolve($tenantId, []);
-        return [[
+        return MarketHealth::attachOptions([[
             ...MarketModelSource::product($market['product']),
             'id' => 'market_file_qa:' . (int)$market['product']['id'] . ':' . (int)$market['sku']['id'],
             'value' => (string)$market['sku']['id'],
@@ -39,7 +39,7 @@ class MarketFileQaAppRuntimeService
             'token_rates' => $market['token_pricing'] ? ['rates' => $market['token_pricing']['tenant'], 'usage_unit_size' => $market['token_pricing']['usage_unit_size']] : null,
             'usage_unit' => (string)$market['sku']['usage_unit'],
             'usage_unit_size' => $market['token_pricing']['usage_unit_size'] ?? MarketUsageSettlementService::unitSize($market['sku']),
-        ]];
+        ]]);
     }
 
     public static function quote(int $tenantId, array $selection = [], int $quantity = 1): array

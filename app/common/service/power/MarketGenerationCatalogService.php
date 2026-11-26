@@ -88,11 +88,12 @@ class MarketGenerationCatalogService
             $applications = array_map(static fn(array $model): array => MarketCreationParameters::describe($model, $generationType), $applications);
         }
 
+        $applications = MarketHealth::attachOptions($applications);
         return [
             'generation_type' => $generationType,
             'models' => MarketModelSource::officialFirst($models),
             'applications' => MarketModelSource::officialFirst($applications),
-            'unavailable_applications' => $unavailable,
+            'unavailable_applications' => MarketHealth::attachOptions($unavailable),
             'channels' => MarketModelSource::officialFirst(array_merge($models, $applications)),
         ];
     }

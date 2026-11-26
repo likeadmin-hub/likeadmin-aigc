@@ -4,6 +4,7 @@ namespace app\common\service\app\aigc_digital_human;
 
 use app\common\model\app\aigc_digital_human\AigcDigitalHumanChannel;
 use app\common\model\app\aigc_digital_human\AigcDigitalHumanChannelSpec;
+use app\common\service\power\MarketHealth;
 use Exception;
 use think\facade\Db;
 use Throwable;
@@ -36,7 +37,7 @@ class AigcDigitalHumanChannelService
         $channels = DigitalHumanMarketService::channels($tenantId);
         $defaults = self::defaults($channels);
         return [
-            'channels' => self::sanitizeChannels($channels, false),
+            'channels' => MarketHealth::attachOptions(self::sanitizeChannels($channels, false)),
             'defaults' => $defaults,
             'quantity_options' => self::quantityOptions($channels),
             'max_reference_images' => self::maxReferenceImages($channels),

@@ -68,6 +68,28 @@ final class MarketHealth
         return $rows;
     }
 
+    /** User catalogs carry the trusted product ID separately from the selectable model or SKU ID. */
+    public static function attachOptions(array $options, ?array $snapshot = null): array
+    {
+        foreach ($options as &$option) {
+            $productId = (int)($option['market_product_id'] ?? 0);
+            if ($productId <= 0) {
+                continue;
+            }
+            if ($snapshot === null) {
+                try {
+                    $snapshot = MarketCatalogReadScope::remember(self::CACHE_KEY, [self::class, 'snapshot']);
+                } catch (Throwable) {
+                    // Statistics are advisory and must not make a catalog unavailable.
+                    break;
+                }
+            }
+            $option['health_24h'] = self::format($snapshot[$productId] ?? self::EMPTY);
+        }
+        unset($option);
+        return $options;
+    }
+
     public static function attachGroups(array $groups, array $products): array
     {
         if ($groups === []) {

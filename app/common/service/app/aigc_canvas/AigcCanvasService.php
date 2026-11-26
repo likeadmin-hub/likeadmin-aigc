@@ -1510,6 +1510,7 @@ class AigcCanvasService
                         'marketing_tags' => $option['marketing_tags'] ?? [],
                         'channel_source' => (string)($option['channel_source'] ?? 'unknown'),
                         'channel_source_label' => (string)($option['channel_source_label'] ?? '其他渠道'),
+                        'health_24h' => $option['health_24h'] ?? null,
                         'model_code' => (string)($option['model_code'] ?? ''),
                         'market_product_id' => (int)($option['product_id'] ?? 0),
                         'market_sku_id' => (int)($option['market_sku_id'] ?? 0),

@@ -954,6 +954,7 @@ class AigcStyleTransferService
                 'code' => (string)$channel['code'],
                 'name' => (string)$channel['name'],
                 'channel_source' => $channel['channel_source'] ?? 'unknown',
+                'health_24h' => $channel['health_24h'] ?? null,
                 'marketing_tags' => $channel['marketing_tags'] ?? [],
                 'qualities' => $qualities,
             ];

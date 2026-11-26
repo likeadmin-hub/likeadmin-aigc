@@ -1204,6 +1204,7 @@ class AigcFittingService
                     'code' => $modelId,
                     'name' => (string)($model['name'] ?? $modelId),
                     'channel_source' => $model['channel_source'] ?? 'unknown',
+                    'health_24h' => $model['health_24h'] ?? null,
                     'marketing_tags' => $model['marketing_tags'] ?? [],
                     'qualities' => array_values($qualities),
                 ];

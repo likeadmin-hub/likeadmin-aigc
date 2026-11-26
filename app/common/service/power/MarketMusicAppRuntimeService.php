@@ -137,7 +137,7 @@ class MarketMusicAppRuntimeService
             }
         }
 
-        return MarketModelSource::officialFirst($options);
+        return MarketHealth::attachOptions(MarketModelSource::officialFirst($options));
     }
 
     public static function quote(int $tenantId, array $selection = []): array

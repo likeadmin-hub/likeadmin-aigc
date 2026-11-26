@@ -88,7 +88,7 @@ final class VideoEnhanceConfig
     public static function options(int $tenant): array
     {
         $options = array_filter(Runtime::options($tenant, Runtime::ENHANCE_APP), static fn(array $option): bool => $option['usage_unit'] === 'input_second');
-        $fields = array_flip(['market_product_id', 'market_sku_id', 'name', 'usage_unit', 'usage_unit_size', 'tenant_unit_price', 'platform_unit_cost']);
+        $fields = array_flip(['market_product_id', 'market_sku_id', 'name', 'health_24h', 'usage_unit', 'usage_unit_size', 'tenant_unit_price', 'platform_unit_cost']);
         return array_values(array_map(static fn(array $option): array => array_intersect_key($option, $fields), $options));
     }
 

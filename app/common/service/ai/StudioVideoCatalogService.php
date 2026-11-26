@@ -3,6 +3,7 @@ namespace app\common\service\ai;
 use app\common\service\app\aigc_video\AigcVideoService;
 use app\common\service\power\MarketVideoModelRuntimeService;
 use app\common\service\power\MarketCatalogReadScope;
+use app\common\service\power\MarketHealth;
 use app\common\service\power\MarketVideoAppRuntimeService;
 use InvalidArgumentException;
 use think\facade\Cache;
@@ -14,7 +15,14 @@ final class StudioVideoCatalogService
     {
         // Share market reads only while discovering callable specifications.
         // Real quotes and admissions run after this scope has been released.
-        return MarketCatalogReadScope::run(static fn(): array => self::buildModels($tenant,$legacy,$mode,$allowedIds,$summary));
+        return MarketCatalogReadScope::run(static function () use ($tenant, $legacy, $mode, $allowedIds, $summary): array {
+            $models = self::buildModels($tenant, $legacy, $mode, $allowedIds, $summary);
+            foreach ($models as &$model) {
+                $model['market_product_id'] = (int)($model['specs'][0]['market_product_id'] ?? 0);
+            }
+            unset($model);
+            return MarketHealth::attachOptions($models);
+        });
     }
     private static function buildModels(int $tenant,bool $legacy,string $mode,?array $allowedIds,bool $summary): array
     {

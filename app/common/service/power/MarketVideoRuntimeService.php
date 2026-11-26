@@ -229,7 +229,7 @@ class MarketVideoRuntimeService
                 'sort' => (int)$product['id'],
             ];
         }
-        return MarketModelSource::officialFirst($options);
+        return MarketHealth::attachOptions(MarketModelSource::officialFirst($options));
     }
 
     /** Expose only sellable generation variants to every catalogue consumer. */
