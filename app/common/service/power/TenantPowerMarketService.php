@@ -54,7 +54,14 @@ class TenantPowerMarketService
         if ($status !== '' && $status !== null) {
             $rows = array_values(array_filter($rows, static fn (array $row): bool => (int)$row['status'] === (int)$status));
         }
-        return self::paginate(MarketModelSource::officialFirst($rows), $pageNo, $pageSize);
+        $rows = MarketModelSource::officialFirst($rows);
+        $order = MarketHealth::direction($filters['success_order'] ?? '');
+        if ($order === '') {
+            $page = self::paginate($rows, $pageNo, $pageSize);
+            $page['lists'] = MarketHealth::attachProducts($page['lists']);
+            return $page;
+        }
+        return self::paginate(MarketHealth::sort(MarketHealth::attachProducts($rows), $order), $pageNo, $pageSize);
     }
 
     private static function applyModelKeyword($query, int $tenantId, string $keyword): void
@@ -68,12 +75,12 @@ class TenantPowerMarketService
         });
     }
 
-    public static function apps(int $tenantId, string $keyword = '', $status = '', int $pageNo = 1, int $pageSize = 15, string $categoryCode = '', $apiStatus = ''): array
+    public static function apps(int $tenantId, string $keyword = '', $status = '', int $pageNo = 1, int $pageSize = 15, string $categoryCode = '', $apiStatus = '', string $successOrder = ''): array
     {
-        return MarketCatalogReadScope::run(static fn(): array => self::readApps($tenantId, $keyword, $status, $pageNo, $pageSize, $categoryCode, $apiStatus));
+        return MarketCatalogReadScope::run(static fn(): array => self::readApps($tenantId, $keyword, $status, $pageNo, $pageSize, $categoryCode, $apiStatus, $successOrder));
     }
 
-    private static function readApps(int $tenantId, string $keyword = '', $status = '', int $pageNo = 1, int $pageSize = 15, string $categoryCode = '', $apiStatus = ''): array
+    private static function readApps(int $tenantId, string $keyword, $status, int $pageNo, int $pageSize, string $categoryCode, $apiStatus, string $successOrder): array
     {
         $query = PowerMarketProduct::where([
             'resource_type' => PowerMarketService::TYPE_APP_API,
@@ -83,12 +90,10 @@ class TenantPowerMarketService
         $products = $query->order(['update_time' => 'desc', 'id' => 'desc'])->select()->toArray();
         self::attachProductStats($tenantId, $products);
         self::applyProductDisplays($tenantId, $products);
+        $products = array_filter($products, static fn (array $product): bool => (int)($product['platform_status'] ?? 0) === 1);
 
         $groups = [];
         foreach ($products as $product) {
-            if ((int)($product['platform_status'] ?? 0) !== 1) {
-                continue;
-            }
             $appCode = trim((string)($product['upstream_app_code'] ?? ''));
             if ($appCode === '') {
                 continue;
@@ -151,6 +156,7 @@ class TenantPowerMarketService
             $groups = array_values(array_filter($groups, static fn (array $group): bool => (string)($group['category_code'] ?? '') === $categoryCode));
         }
         usort($groups, static fn (array $left, array $right): int => [$right['status'], $right['update_time'], $left['app_code']] <=> [$left['status'], $left['update_time'], $right['app_code']]);
+        $groups = MarketHealth::sort(MarketHealth::attachGroups($groups, $products), $successOrder);
         return self::paginate($groups, $pageNo, $pageSize);
     }
 

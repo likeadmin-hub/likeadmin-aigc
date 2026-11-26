@@ -6,6 +6,7 @@ use app\common\lists\ListsSearchInterface;
 use app\common\lists\ListsExtendInterface;
 use app\common\model\power\PowerMarketProduct;
 use app\common\model\power\PowerMarketSku;
+use app\common\service\power\MarketHealth;
 use app\common\service\power\PowerMarketService;
 use app\common\service\power\MarketModelSource;
 use app\common\service\power\MarketModelFilter;
@@ -26,13 +27,26 @@ class PowerMarketProductLists extends BaseAdminDataLists implements ListsSearchI
 
     public function lists(): array
     {
-        $query = $this->filteredQuery();
-        $rows = $query
+        $query = $this->filteredQuery()
             ->orderRaw(MarketModelSource::officialFirstOrder())
-            ->order(['status' => 'desc', 'update_time' => 'desc', 'id' => 'desc'])
-            ->limit($this->limitOffset, $this->limitLength)
-            ->select()
-            ->toArray();
+            ->order(['status' => 'desc', 'update_time' => 'desc', 'id' => 'desc']);
+        $order = MarketHealth::direction($this->request->get('success_order', ''));
+        $snapshot = null;
+        if ($order === '') {
+            $rows = $query->limit($this->limitOffset, $this->limitLength)->select()->toArray();
+        } else {
+            $snapshot = MarketHealth::snapshot();
+            $candidates = (clone $query)->field('id')->select()->toArray();
+            $ranked = MarketHealth::sort(MarketHealth::attachProducts($candidates, $snapshot), $order);
+            $pageIds = array_slice(array_column($ranked, 'id'), $this->limitOffset, $this->limitLength);
+            $byId = $pageIds === [] ? [] : array_column($query->whereIn('id', $pageIds)->select()->toArray(), null, 'id');
+            $rows = [];
+            foreach ($pageIds as $id) {
+                if (isset($byId[$id])) {
+                    $rows[] = $byId[$id];
+                }
+            }
+        }
         $ids = array_values(array_filter(array_column($rows, 'id')));
         $textIds = array_fill_keys(array_column(array_filter($rows, static fn($row) => $row['model_type'] === 'text'), 'id'), true);
         $platformRules = null;
@@ -71,7 +85,7 @@ class PowerMarketProductLists extends BaseAdminDataLists implements ListsSearchI
             $row['status_text'] = $row['status'] === 1 ? '上架' : '下架';
         }
         unset($row);
-        return $rows;
+        return MarketHealth::attachProducts($rows, $snapshot);
     }
 
     public function count(): int

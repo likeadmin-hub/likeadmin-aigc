@@ -125,7 +125,7 @@ class PowerMarketService
      *
      * @return array{lists: array<int, array<string, mixed>>, count: int}
      */
-    public static function apps(string $keyword = '', $status = '', int $pageNo = 1, int $pageSize = 15, string $categoryCode = '', $apiStatus = ''): array
+    public static function apps(string $keyword = '', $status = '', int $pageNo = 1, int $pageSize = 15, string $categoryCode = '', $apiStatus = '', string $successOrder = ''): array
     {
         $query = PowerMarketProduct::where('resource_type', self::TYPE_APP_API);
         MarketModelFilter::applyApiStatus($query, 0, $apiStatus);
@@ -147,6 +147,7 @@ class PowerMarketService
         if ($categoryCode !== '') {
             $groups = array_values(array_filter($groups, static fn (array $item): bool => (string)($item['category_code'] ?? '') === $categoryCode));
         }
+        $groups = MarketHealth::sort(MarketHealth::attachGroups($groups, $products), $successOrder);
         $count = count($groups);
         $pageNo = max(1, $pageNo);
         $pageSize = min(100, max(1, $pageSize));

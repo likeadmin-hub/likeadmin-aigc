@@ -2,6 +2,7 @@
 
 namespace app\tenantapi\controller\power;
 
+use app\common\service\power\MarketHealth;
 use app\common\service\power\MarketModelFilter;
 use app\common\service\power\TenantPowerMarketService;
 use app\tenantapi\controller\BaseAdminController;
@@ -32,24 +33,33 @@ class MarketController extends BaseAdminController
             (int)$this->request->get('page_no', 1),
             (int)$this->request->get('page_size', 15),
             (string)$this->request->get('category_code', ''),
-            $this->request->get('api_status', '')
+            $this->request->get('api_status', ''),
+            MarketHealth::direction($this->request->get('success_order', ''))
         ));
     }
 
     public function detail()
     {
-        return $this->catalogResponse(TenantPowerMarketService::detail(
+        $data = TenantPowerMarketService::detail(
             (int)$this->adminInfo['tenant_id'],
             (int)$this->request->get('id', 0)
-        ));
+        );
+        return $this->catalogResponse($data ? MarketHealth::attachProducts([$data])[0] : []);
     }
 
     public function appDetail()
     {
-        return $this->catalogResponse(TenantPowerMarketService::appDetail(
+        $data = TenantPowerMarketService::appDetail(
             (int)$this->adminInfo['tenant_id'],
             (string)$this->request->get('app_code', '')
-        ));
+        );
+        if ($data) {
+            $data['apis'] = MarketHealth::sort(
+                MarketHealth::attachProducts($data['apis']),
+                MarketHealth::direction($this->request->get('success_order', ''))
+            );
+        }
+        return $this->catalogResponse($data);
     }
 
     private function catalogResponse(array $data)

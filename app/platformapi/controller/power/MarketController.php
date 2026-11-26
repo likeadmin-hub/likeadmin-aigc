@@ -3,6 +3,7 @@
 namespace app\platformapi\controller\power;
 
 use app\common\service\app\UpstreamPricingService;
+use app\common\service\power\MarketHealth;
 use app\common\service\power\MarketModelFilter;
 use app\common\service\power\PowerMarketService;
 use app\platformapi\controller\BaseAdminController;
@@ -27,7 +28,8 @@ class MarketController extends BaseAdminController
 
     public function detail()
     {
-        return $this->success('获取成功', PowerMarketService::detail((int)$this->request->get('id', 0)));
+        $data = PowerMarketService::detail((int)$this->request->get('id', 0));
+        return $this->success('获取成功', $data ? MarketHealth::attachProducts([$data])[0] : []);
     }
 
     public function apps()
@@ -38,13 +40,21 @@ class MarketController extends BaseAdminController
             (int)$this->request->get('page_no', 1),
             (int)$this->request->get('page_size', 15),
             (string)$this->request->get('category_code', ''),
-            $this->request->get('api_status', '')
+            $this->request->get('api_status', ''),
+            MarketHealth::direction($this->request->get('success_order', ''))
         ));
     }
 
     public function appDetail()
     {
-        return $this->success('获取成功', PowerMarketService::appDetail((string)$this->request->get('app_code', '')));
+        $data = PowerMarketService::appDetail((string)$this->request->get('app_code', ''));
+        if ($data) {
+            $data['apis'] = MarketHealth::sort(
+                MarketHealth::attachProducts($data['apis']),
+                MarketHealth::direction($this->request->get('success_order', ''))
+            );
+        }
+        return $this->success('获取成功', $data);
     }
 
     public function pricingRules()
