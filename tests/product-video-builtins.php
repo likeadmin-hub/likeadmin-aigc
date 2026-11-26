@@ -94,6 +94,11 @@ try{C::withDirectory($dir,static function()use($dir){
  Db::name('tenant_file')->where('id',$receiptId)->update(['delete_time'=>null]);
  $replaced=$publishReplacement();
  yes($replaced['builtin_version']===3&&$replaced['configuration']['images'][0]['uri']===$replacementUri,'Restored tenant admin replacement publishes on the original task template');
+ P::forReplication(function()use($replacementUri,$engine,$domain){
+     C::refresh();
+     yes(C::mediaUrl($replacementUri,$engine,$domain)===$domain.'/'.$replacementUri,'Replication reads a cold product catalog without applying clip requirements to product definitions');
+     reject(fn()=>P::body([]),'Replication still requires a clip after the shared catalog lookup');
+ });
 
  });echo "PASS $checks platform builtin publication, cross-tenant remix, source updates and shared OSS protection checks\n";
 }finally{Db::rollback();foreach(glob($dir.'/*') as $f)unlink($f);rmdir($dir);}

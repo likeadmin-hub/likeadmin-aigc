@@ -34,7 +34,7 @@ final class ProductVideoPolicy
     {if(!is_string($value)&&!is_numeric($value))throw new InvalidArgumentException('内容格式不正确');$text=trim((string)$value);if(mb_strlen($text)>$max)throw new InvalidArgumentException('内容超过长度限制');return $text;}
     public static function key(string $value): string
     {if(str_starts_with($value,'pipeline_')||!preg_match('/^[a-zA-Z0-9_-]{16,100}$/D',$value))throw new InvalidArgumentException('请刷新后重新提交');return $value;}
-    public static function body(array $body): array
+    public static function body(array $body, ?string $app = null): array
     {
         $mode=$body['mode']??'normal';if(!in_array($mode,['normal','advanced'],true))throw new InvalidArgumentException('创作模式无效');
         $images=$body['images']??[];if(!is_array($images)||count($images)>15)throw new InvalidArgumentException('商品图片最多 15 张');
@@ -50,7 +50,7 @@ final class ProductVideoPolicy
             'language'=>self::text($body['language']??'中文',60),'plan'=>$body['plan']??null,'reference_analysis'=>$body['reference_analysis']??null,
             'analysis_model_id'=>self::text($body['analysis_model_id']??'',100),'planning_model_id'=>self::text($body['planning_model_id']??'',100),
             'video_selection'=>(array)($body['video_selection']??[])];
-        if (self::replicating()) {
+        if (($app ?? self::app()) === self::REPLICATION) {
             $out = VideoReplicationWorkflow::normalize($out, $body);
         }
         if(strlen(self::encode($out))>160000)throw new InvalidArgumentException('创作资料过大');return $out;

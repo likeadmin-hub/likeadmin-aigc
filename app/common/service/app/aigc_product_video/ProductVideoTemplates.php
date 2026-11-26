@@ -15,7 +15,7 @@ final class ProductVideoTemplates
 {
     public static function snapshot(array $input): array
     {
-        $body=ProductVideoPolicy::body($input);
+        $body=ProductVideoPolicy::body($input, ProductVideoPolicy::APP);
         $fresh=!empty($body['plan'])&&($body['plan']['input_key']??'')===ProductVideoPolicy::planKey($body);
         $body['images']=array_map(static fn($image)=>array_intersect_key((array)$image,array_flip(['uri','name','role','reference_slot_id','mention_name','storage_scope','storage_engine','storage_domain'])), $body['images']);
         $selection=$body['video_selection'];$body['video_selection']=[];

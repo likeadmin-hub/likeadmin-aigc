@@ -20,7 +20,7 @@ final class VideoReplicationTemplates
     public static function snapshot(array $input): array
     {
         $fields = ['reference_video','clip','images','prompt','video_selection','market_region','language'];
-        $body = ProductVideoPolicy::forReplication(fn() => ProductVideoPolicy::body(array_intersect_key($input, array_flip($fields))));
+        $body = ProductVideoPolicy::body(array_intersect_key($input, array_flip($fields)), self::APP);
         $body = array_intersect_key($body, array_flip($fields));
         $body['video_selection'] = array_intersect_key($body['video_selection'], array_flip(['model_id','duration','ratio','quality']));
         if (!$body['reference_video'] || !$body['images'] || $body['prompt'] === '') {
