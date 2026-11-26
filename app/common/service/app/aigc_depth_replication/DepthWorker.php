@@ -75,7 +75,7 @@ final class DepthWorker
                 $index = json_decode(file_get_contents($cache.'/index.json'),true,512,JSON_THROW_ON_ERROR);
                 return ['analyze_seconds'=>$index['analyze_seconds'],'frames'=>count($index['pts'])];
             }
-            $parent = DepthJobs::owned($tenant,$user,(int)$row['analysis_id']);
+            $parent = DepthJobs::analysisFor($row);
             DepthJobs::index($parent);
             $cache = DepthJobs::folder((int)$parent['id']).'/cache';
             $settings = json_decode($row['settings_json'],true);

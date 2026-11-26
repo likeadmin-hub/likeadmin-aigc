@@ -27,7 +27,12 @@ class JobController extends BaseApiController
 
     public function detail()
     {
-        return $this->respond(fn() => DepthJobs::dto(DepthJobs::owned((int)$this->request->tenantId, $this->userId, (int)$this->request->get('id',0)), true));
+        return $this->respond(fn() => DepthJobs::dto(DepthJobs::owned((int)$this->request->tenantId, $this->userId, (int)$this->request->get('id',0)), true, (bool)$this->request->get('for_edit', false)));
+    }
+
+    public function delete()
+    {
+        return $this->respond(fn() => DepthJobs::delete((int)$this->request->tenantId, $this->userId, (int)$this->request->post('id',0)));
     }
 
     public function frames()

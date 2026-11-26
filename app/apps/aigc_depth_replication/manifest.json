@@ -1,10 +1,10 @@
 {
   "code": "aigc_depth_replication",
   "name": "深度复刻",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "require_core": ">=1.0.442",
   "description": "分析原视频的镜头深度，逐镜头调整白模光影并保留原声导出。",
-  "changelog": "新增整景深度分析、同帧调光预览与原声 MP4 导出。",
+  "changelog": "1. 支持删除已完成和失败的历史创作记录。2. 删除深度分析记录后，仍可继续调整已有导出作品的灯光。",
   "icon": "resource/image/apps/aigc_depth_replication/cover.webp",
   "cover": "resource/image/apps/aigc_depth_replication/cover.webp",
   "category": "aigc",

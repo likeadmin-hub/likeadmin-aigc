@@ -29,11 +29,33 @@ final class DepthJobs
         });
     }
 
-    public static function owned(int $tenant, int $user, int $id): array
+    public static function owned(int $tenant, int $user, int $id, bool $includeDeleted = false): array
     {
         $row = Db::name(self::TABLE)->where(['id'=>$id,'tenant_id'=>$tenant,'user_id'=>$user])->find();
-        if (!$row || !$tenant || !$user) throw new InvalidArgumentException('创作记录不存在');
+        if (!$row || !$tenant || !$user || (!$includeDeleted && $row['delete_time'])) {
+            throw new InvalidArgumentException('创作记录不存在');
+        }
         return $row;
+    }
+
+    public static function delete(int $tenant, int $user, int $id): array
+    {
+        $row = self::owned($tenant, $user, $id, true);
+        if (!$row['delete_time']) {
+            if (!in_array($row['status'], ['success', 'failed'], true)) {
+                throw new InvalidArgumentException('请等待任务结束后再删除记录');
+            }
+            Db::name(self::TABLE)->where(['id'=>$id, 'tenant_id'=>$tenant, 'user_id'=>$user, 'delete_time'=>0])
+                ->update(['delete_time'=>time()]);
+        }
+        return ['id'=>$id];
+    }
+
+    /** A visible export retains its source analysis even after the analysis card is removed. */
+    public static function analysisFor(array $row): array
+    {
+        if ($row['kind'] === 'analyze') return $row;
+        return self::owned((int)$row['tenant_id'], (int)$row['user_id'], (int)$row['analysis_id'], true);
     }
 
     public static function folder(int $id): string
@@ -51,6 +73,7 @@ final class DepthJobs
 
     public static function frames(array $row, int $start): array
     {
+        $row = self::analysisFor($row);
         $meta = self::index($row);
         $count = count($meta['pts']);
         if ($start < 0 || $start >= $count) throw new InvalidArgumentException('预览时间超出视频范围');
@@ -81,10 +104,13 @@ final class DepthJobs
         $key = (string)($params['request_id'] ?? '');
         if (!$tenant || !$user || !preg_match('/^[\w-]{8,80}$/D',$key)) throw new InvalidArgumentException('提交标识无效');
         $kind = $params['kind'] ?? '';
-        $hash = hash('sha256',json_encode([$kind,$params['uri']??null,$params['analysis_id']??null,$params['settings']??null],JSON_THROW_ON_ERROR));
+        $input = [$kind, $params['uri']??null, $params['analysis_id']??null, $params['settings']??null];
+        if (isset($params['source_job_id'])) $input[] = (int)$params['source_job_id'];
+        $hash = hash('sha256', json_encode($input, JSON_THROW_ON_ERROR));
         $identity = ['tenant_id'=>$tenant,'user_id'=>$user,'request_id'=>$key];
         $existing = static function () use ($identity,$hash) {
             $row = Db::name(self::TABLE)->where($identity)->find();
+            if ($row && $row['delete_time']) throw new InvalidArgumentException('创作记录已删除');
             if ($row && !hash_equals($row['input_hash'],$hash)) throw new InvalidArgumentException('此提交标识已用于另一项创作');
             return $row;
         };
@@ -96,8 +122,9 @@ final class DepthJobs
             } catch (\RuntimeException $e) { throw new InvalidArgumentException('请重新选择可读取的本人视频素材',0,$e); }
             if ($source['file_size'] > 100*1048576) throw new InvalidArgumentException('视频不能超过 100 MB');
         } elseif ($kind === 'render') {
-            $analysis = (int)($params['analysis_id'] ?? 0);
-            $row = self::owned($tenant,$user,$analysis);
+            $sourceJob = self::owned($tenant, $user, (int)($params['source_job_id'] ?? $params['analysis_id'] ?? 0));
+            $row = self::analysisFor($sourceJob);
+            $analysis = (int)$row['id'];
             $settings = self::settings((array)($params['settings']??[]),self::index($row));
             $source = json_decode($row['source_json'],true);
         } else throw new InvalidArgumentException('创作类型无效');
@@ -109,7 +136,7 @@ final class DepthJobs
         return self::dto(['id'=>$id]+$row);
     }
 
-    public static function dto(array $row, bool $withIndex=false): array
+    public static function dto(array $row, bool $withIndex=false, bool $forEdit=false): array
     {
         $source = json_decode($row['source_json'],true);
         $result = json_decode($row['result_json'],true) ?: [];
@@ -118,15 +145,16 @@ final class DepthJobs
             'name'=>$source['name'],'source'=>['uri'=>$source['uri'],'url'=>$url($source),'name'=>$source['name']],
             'settings'=>json_decode($row['settings_json'],true),'create_time'=>(int)$row['create_time'],'error'=>$row['error']??'',
             'seconds'=>$result['analyze_seconds']??$result['render_seconds']??null,'url'=>isset($result['asset'])?$url($result['asset']):''];
-        if ($withIndex && $row['kind']==='analyze' && $row['status']==='success' && is_file(self::folder((int)$row['id']).'/cache/index.json')) {
-            $dto['index'] = self::index($row);
+        if ($withIndex && $row['status']==='success' && ($row['kind']==='analyze' || $forEdit)) {
+            $analysis = self::analysisFor($row);
+            if (is_file(self::folder((int)$analysis['id']).'/cache/index.json')) $dto['index'] = self::index($analysis);
         }
         return $dto;
     }
 
     public static function lists(int $tenant, ?int $user, int $before, bool $platform=false): array
     {
-        $q = Db::name(self::TABLE);
+        $q = Db::name(self::TABLE)->where('delete_time',0);
         if (!$platform || $tenant>0) $q->where('tenant_id',$tenant);
         if ($user !== null) $q->where('user_id',$user);
         if ($before>0) $q->where('id','<',$before);
