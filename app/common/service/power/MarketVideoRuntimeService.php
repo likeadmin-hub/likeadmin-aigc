@@ -1195,9 +1195,6 @@ class MarketVideoRuntimeService
     /** No supplier uploads or task/point writes: safe before quote/reservation. */
     public static function prepareRequest(array $snapshot, array $request, string $idempotency = ''): PreparedMarketGeneration
     {
-        if (!empty($request['require_generated_audio'])) {
-            $request = MarketVideoAudioOutput::enable($snapshot, $request);
-        }
         $ownedFlatPrompt=($snapshot['resource_type']??'model')==='model'
             &&in_array(MarketOwnedPlatformFlatSourceRules::family((string)($snapshot['model_code']??''),(string)($snapshot['channel_code']??'')),['veo','grok'],true)
             &&MarketOwnedPlatformFlatSourceRules::applies($snapshot);
@@ -1332,6 +1329,9 @@ class MarketVideoRuntimeService
 
     private static function modelPayload(array $snapshot, array $request, string $idempotency): array
     {
+        if (!empty($request['require_generated_audio'])) {
+            $request = MarketVideoAudioOutput::enable($snapshot, $request);
+        }
         if(MarketOwnedPlatformContractRules::applies($snapshot,'q4_video_v1')){
             $body=MarketOwnedPlatformContractRules::q4Payload($snapshot,$request);
             return array_merge(self::marketContext($snapshot,'power_market_video'),$body,
@@ -1824,6 +1824,9 @@ class MarketVideoRuntimeService
 
     private static function appPayload(array $snapshot, array $request, string $idempotency): array
     {
+        if (!empty($request['require_generated_audio'])) {
+            $request = MarketVideoAudioOutput::enable($snapshot, $request);
+        }
         $locked = self::arrayValue($snapshot['locked_params'] ?? []);
         $assets = self::assets($request);
         return MarketGenerationApplicationProtocol::video($snapshot, $request, $idempotency, $assets,

@@ -17,10 +17,13 @@ Policy::forSale(function () {
     expectSale($ugc['mode'] === 'normal' && $ugc['audio'] && $ugc['template_code'] === 'ugc', 'UGC defaults');
     $direction = Policy::prompt($ugc);
     expectSale(str_contains($direction,'English') && str_contains($direction,'第一人称') && !str_contains($direction,'@图片2'), 'UGC speech');
+    expectSale(!str_contains($direction, "\n"), 'UGC prompt must satisfy single-line video contracts');
     ProductVideoMaterials::assertMentions($ugc, $ugc['images']);
     expectSale(ProductVideoTemplates::snapshot($ugc)['normal_source'] === 'template', 'UGC template round trip');
     $custom = Policy::body(array_replace($source, ['normal_source'=>'prompt', 'prompt'=>'Show the dial', 'prompt_review_images'=>['watch.jpg']]));
     expectSale(str_contains(Policy::prompt($custom), 'Show the dial'), 'custom speech');
+    $custom['prompt'] = "Show the dial.\nTilt the watch.";
+    expectSale(str_contains(Policy::prompt($custom), 'Show the dial. Tilt the watch.') && str_contains($custom['prompt'], "\n"), 'Preserve the editable multiline script');
     expectSale(ProductVideoImport::capacity(['max_reference_images'=>15]) === 10, 'sale model limit');
     expectSale(SaleVideoWorkflow::target('https://shop.tiktok.com/view/product/12345?utm_campaign=shop')['url'] === 'https://shop.tiktok.com/view/product/12345', 'product URL');
     expectSale(SaleVideoWorkflow::target('https://www.tiktok.com/shop/pdp/watch/12345')['provider'] === 'tiktok', 'US shop URL');
