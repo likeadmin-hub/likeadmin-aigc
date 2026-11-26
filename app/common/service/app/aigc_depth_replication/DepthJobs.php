@@ -152,6 +152,37 @@ final class DepthJobs
         return $dto;
     }
 
+    public static function historyGroups(int $tenant, int $user, int $before): array
+    {
+        return Db::transaction(function () use ($tenant, $user, $before) {
+            $visible = Db::name(self::TABLE)->where(['tenant_id'=>$tenant, 'user_id'=>$user, 'delete_time'=>0]);
+            $page = (clone $visible)
+                ->fieldRaw('CASE WHEN analysis_id = 0 THEN id ELSE analysis_id END AS root_id, MAX(id) AS latest_id')
+                ->group('root_id')->order('latest_id', 'desc')->limit(21);
+            if ($before > 0) $page->having('MAX(id) < ' . $before);
+            $roots = $page->select()->toArray();
+            $groups = [];
+            foreach (array_slice($roots, 0, 20) as $root) {
+                $id = (int)$root['root_id'];
+                $groups[$id] = ['id'=>$id, 'analysis'=>null, 'exports'=>[]];
+            }
+            if ($groups) {
+                $ids = array_keys($groups);
+                $rows = $visible->where(function ($q) use ($ids) {
+                    $q->whereIn('id', $ids)->whereIn('analysis_id', $ids, 'OR');
+                })->order('id', 'asc')->select();
+                foreach ($rows as $row) {
+                    if ($row['kind'] === 'analyze') {
+                        $groups[$row['id']]['analysis'] = self::dto($row);
+                    } else {
+                        $groups[$row['analysis_id']]['exports'][] = self::dto($row);
+                    }
+                }
+            }
+            return ['groups'=>array_values($groups), 'next_before'=>count($roots) > 20 ? (int)$roots[19]['latest_id'] : 0];
+        });
+    }
+
     public static function lists(int $tenant, ?int $user, int $before, bool $platform=false): array
     {
         $q = Db::name(self::TABLE)->where('delete_time',0);

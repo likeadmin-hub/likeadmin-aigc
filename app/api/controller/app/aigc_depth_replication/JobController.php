@@ -22,7 +22,12 @@ class JobController extends BaseApiController
 
     public function lists()
     {
-        return $this->respond(fn() => DepthJobs::lists((int)$this->request->tenantId, $this->userId, (int)$this->request->get('before',0)));
+        $tenant = (int)$this->request->tenantId;
+        $before = (int)$this->request->get('before', 0);
+        if ((int)$this->request->get('grouped', 0) === 1) {
+            return $this->respond(fn() => DepthJobs::historyGroups($tenant, $this->userId, $before));
+        }
+        return $this->respond(fn() => DepthJobs::lists($tenant, $this->userId, $before));
     }
 
     public function detail()
