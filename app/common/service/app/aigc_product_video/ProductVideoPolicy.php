@@ -167,8 +167,10 @@ final class ProductVideoPolicy
                 throw new InvalidArgumentException('商品已变化，请检查并确认口播脚本');
             }
             $script = $body['normal_source'] === 'template' ? SaleVideoWorkflow::UGC : $body['prompt'];
+            $seconds = (int)($body['video_selection']['duration'] ?? 0);
+            $timing = $seconds > 0 ? "成片时长为 {$seconds} 秒，口播和演示在此时长内完成。" : '';
             // Some video contracts require a single-line prompt. Keep the editable script verbatim in the project.
-            return preg_replace('/\R+/u', ' ', $base.SaleVideoWorkflow::DIRECTION.' '.$script);
+            return preg_replace('/\R+/u', ' ', $base.$timing.SaleVideoWorkflow::DIRECTION.' '.$script);
         }
         if (self::replicating() && !empty($body['requirements'])) {
             $base .= '创作要求：'.$body['requirements'].'。';

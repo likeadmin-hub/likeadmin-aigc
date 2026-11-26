@@ -1,7 +1,7 @@
 <?php
 declare(strict_types=1);
 
-use app\common\service\app\aigc_product_video\{ProductVideoPolicy as Policy, ProductVideoImport, ProductVideoMaterials, ProductVideoTemplates, ProductVideoWorker, SaleVideoWorkflow};
+use app\common\service\app\aigc_product_video\{ProductVideoPolicy as Policy, ProductVideoImport, ProductVideoMaterials, ProductVideoPrompts, ProductVideoTemplates, ProductVideoWorker, SaleVideoWorkflow};
 use app\common\service\power\MarketVideoAudioOutput;
 
 require dirname(__DIR__).'/runtime-loader.php';
@@ -16,16 +16,22 @@ function expectSale(bool $value, string $message): void {
 
 Policy::forSale(function () {
     $source = ['images'=>[['uri'=>'watch.jpg']], 'normal_source'=>'template', 'language'=>'English',
-        'market_region'=>'US', 'audio'=>false, 'prompt'=>'@图片2', 'mode'=>'advanced'];
+        'market_region'=>'US', 'audio'=>false, 'prompt'=>'@图片2', 'mode'=>'advanced', 'video_selection'=>['duration'=>10]];
     $ugc = Policy::body($source);
     expectSale($ugc['mode'] === 'normal' && $ugc['audio'] && $ugc['template_code'] === 'ugc', 'UGC defaults');
     $direction = Policy::prompt($ugc);
+    $writer = ProductVideoPrompts::system('write');
+    foreach ([SaleVideoWorkflow::DIRECTION, SaleVideoWorkflow::UGC] as $instruction) {
+        expectSale(str_contains($writer, $instruction) && str_contains($direction, $instruction), 'Writing and UGC rendering must share presenter and demonstration instructions');
+    }
+    expectSale(str_contains($direction, '10 秒') && str_contains($writer, 'duration_seconds'), 'Both stages receive timing instructions');
     expectSale(str_contains($direction,'English') && str_contains($direction,'第一人称') && !str_contains($direction,'@图片2'), 'UGC speech');
     expectSale(!str_contains($direction, "\n"), 'UGC prompt must satisfy single-line video contracts');
     ProductVideoMaterials::assertMentions($ugc, $ugc['images']);
     expectSale(ProductVideoTemplates::snapshot($ugc)['normal_source'] === 'template', 'UGC template round trip');
     $custom = Policy::body(array_replace($source, ['normal_source'=>'prompt', 'prompt'=>'Show the dial', 'prompt_review_images'=>['watch.jpg']]));
     expectSale(str_contains(Policy::prompt($custom), 'Show the dial'), 'custom speech');
+    expectSale(!str_contains(Policy::prompt($custom), SaleVideoWorkflow::UGC), 'A custom script supplies its own wording and sequence');
     $write = ['action'=>'write', 'request_json'=>Policy::encode(['duration'=>2, 'snapshot'=>[
         'images'=>[['reference_slot_id'=>'slot-1','mention_name'=>'图片1']],
     ]])];
@@ -61,6 +67,7 @@ Policy::forSale(function () {
     expectSale($next['phase']==='images' && $next['name']==='Watch' && count($next['candidates'])===1,'TikTok product metadata');
 });
 expectSale(Policy::app()===Policy::APP && ProductVideoImport::capacity(['max_reference_images'=>15])===15,'product app scope restored');
+expectSale(!str_contains(ProductVideoPrompts::system('write'), SaleVideoWorkflow::DIRECTION), 'Other tools keep their own presenter rules');
 foreach (['sound', 'enable_audio', 'generate_audio_switch', 'audio', 'generate_audio'] as $field) {
     $snapshot = ['params_schema'=>[$field=>['type'=>'boolean', 'default'=>false]]];
     $request = MarketVideoAudioOutput::enable($snapshot, []);

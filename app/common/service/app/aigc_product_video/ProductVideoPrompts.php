@@ -6,7 +6,7 @@ final class ProductVideoPrompts
     public static function templates(): array
     {
         if (ProductVideoPolicy::app() === ProductVideoPolicy::SALE) {
-            return [['code'=>'ugc', 'name'=>'UGC 种草', 'description'=>'使用者视角的自拍分享', 'instruction'=>SaleVideoWorkflow::UGC, 'version'=>'1.0.0']];
+            return [['code'=>'ugc', 'name'=>'UGC 种草', 'description'=>'一人出镜，边讲边演示商品', 'instruction'=>SaleVideoWorkflow::UGC, 'version'=>'1.1.0']];
         }
         $templates = [
             ['code'=>'detail','name'=>'细节展示','description'=>'展示外观、材质与局部细节','instruction'=>'先展示完整商品，再呈现有辨识度的材质和细节，最后回到完整商品。'],
@@ -27,7 +27,7 @@ final class ProductVideoPrompts
 TEXT;
         if(in_array($action,['reference','chapters'],true))$truth='额外生成用视频和音频只有角色信息时，不猜测它们的内容，保留用户素材引用即可。商品事实以用户商品图片及已确认 product_info 为准，不引入其他商品的品牌、价格、功效和包装。不能确认的事实留空。';
         if (ProductVideoPolicy::app() === ProductVideoPolicy::SALE && $action === 'write') {
-            return $base.$truth.SaleVideoWorkflow::DIRECTION.SaleVideoWorkflow::WRITE;
+            return $base.$truth.SaleVideoWorkflow::DIRECTION.SaleVideoWorkflow::UGC.SaleVideoWorkflow::WRITE;
         }
         return $base.$truth.match($action){
             'product'=>self::productStructure().'只输出商品分析结构，不输出镜头、视频描述或任何图片生成任务。',
