@@ -16,7 +16,7 @@ use think\facade\Cache;
 final class ProductVideoBuiltins
 {
     private static bool $writing=false;
-    public static function table(){return Db::name('aigc_product_video_builtin');}
+    public static function table(){return Db::name(ProductVideoPolicy::templateApp().'_builtin');}
     public static function writing(): bool{return self::$writing;}
     private static function internal(callable $call): mixed
     {$old=self::$writing;self::$writing=true;try{return $call();}finally{self::$writing=$old;}}
@@ -29,7 +29,7 @@ final class ProductVideoBuiltins
         if($job['action']!=='video'||!in_array($job['status'],['success','partial'],true))throw new InvalidArgumentException('仅已完成视频可以设为内置模板');
         $lock=SubmitLockService::acquire('product_video_builtin_job_'.$id);
         try{return Db::transaction(static function()use($job,$id,$params,$scope){
-            $sources=AppCase::where(['tenant_id'=>$job['tenant_id'],'app_code'=>ProductVideoPolicy::APP,'source_task_id'=>$id])->column('id');
+            $sources=AppCase::where(['tenant_id'=>$job['tenant_id'],'app_code'=>ProductVideoPolicy::templateApp(),'source_task_id'=>$id])->column('id');
             $link=$sources?self::table()->whereIn('source_case_id',$sources)->find():null;
             if($link){self::sync(true);return ProductVideoTemplates::detail($scope,(int)$link['case_id']);}
             $case=ProductVideoTemplates::fromJob($scope,$id,$params);return self::publish((int)$case['id'],$params,$scope);
@@ -50,8 +50,8 @@ final class ProductVideoBuiltins
             $media=$entry['media'];$selection=$body['video_selection'];
             $request=['model_id'=>$selection['model_id']??'','prompt'=>$body['prompt'],'quality'=>$selection['quality'],'ratio'=>$selection['ratio'],'duration'=>$selection['duration'],
                 'reference_images'=>array_column($body['images'],'uri'),'reference_assets'=>$body['images'],'advanced_params'=>['product_video'=>$body,'product_video_media'=>$media]];
-            if($link['case_id'])AppCase::where(['id'=>$link['case_id'],'tenant_id'=>0,'app_code'=>ProductVideoPolicy::APP])->update(['delete_time'=>0]);
-            $saved=AppCaseService::save(0,ProductVideoPolicy::APP,['id'=>$link['case_id']??0,'title'=>$entry['title'],'prompt'=>$body['prompt'],'media_type'=>'video','cover_uri'=>$body['images'][0]['uri'],
+            if($link['case_id'])AppCase::where(['id'=>$link['case_id'],'tenant_id'=>0,'app_code'=>ProductVideoPolicy::templateApp()])->update(['delete_time'=>0]);
+            $saved=AppCaseService::save(0,ProductVideoPolicy::templateApp(),['id'=>$link['case_id']??0,'title'=>$entry['title'],'prompt'=>$body['prompt'],'media_type'=>'video','cover_uri'=>$body['images'][0]['uri'],
                 'media_uri'=>$media['uri'],'reference_images'=>array_column($body['images'],'uri'),'config_json'=>['model_name'=>$entry['model_name'],'generation_request'=>$request],
                 'status'=>$entry['deleted']?0:$entry['status'],'sort'=>$entry['sort'],'source_task_id'=>0,'source_result_id'=>0]);
             self::table()->where('builtin_key',$entry['key'])->update(['case_id'=>(int)$saved['id'],'version'=>$entry['version'],'source_hash'=>$hash,'update_time'=>time()]);
@@ -115,7 +115,7 @@ final class ProductVideoBuiltins
         if(empty($params['confirm_public_media']))throw new InvalidArgumentException('请确认将商品素材作为平台共享素材');
         $lock=SubmitLockService::acquire('product_video_builtin_source');
         try{ProductVideoBuiltinCatalog::refresh();return Db::transaction(static function()use($sourceId,$params,$scope){
-            $query=AppCase::where(['id'=>$sourceId,'app_code'=>ProductVideoPolicy::APP,'delete_time'=>0]);if($scope>0)$query->where('tenant_id',$scope);$source=$query->lock(true)->find();
+            $query=AppCase::where(['id'=>$sourceId,'app_code'=>ProductVideoPolicy::templateApp(),'delete_time'=>0]);if($scope>0)$query->where('tenant_id',$scope);$source=$query->lock(true)->find();
             if(!$source)throw new InvalidArgumentException('请选择租户已有的商品视频模板');
             $source=$source->toArray();$existing=self::table()->where('source_case_id',$sourceId)->find();$all=ProductVideoBuiltinCatalog::all();$prior=$existing?($all[$existing['builtin_key']]??null):null;
             if((int)($params['expected_version']??0)!==(int)($prior['version']??0))throw new InvalidArgumentException('内置模板已更新，请刷新后重试');

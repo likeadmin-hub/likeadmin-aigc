@@ -1,0 +1,64 @@
+{
+  "code": "aigc_sale_video",
+  "name": "带货视频",
+  "version": "1.0.0",
+  "require_core": ">=1.0.442",
+  "description": "用商品图片制作出镜口播视频，支持 UGC 种草和自定义脚本。",
+  "changelog": "1. 新增带货视频，支持商品链接导入、UGC 种草、口播脚本帮写和灵感同款。",
+  "icon": "resource/image/common/menu_generator.png",
+  "category": "aigc",
+  "cover": "resource/image/apps/aigc_sale_video/cover.webp",
+  "is_builtin": 1,
+  "expire_policy": "allow",
+  "sort": 845,
+  "frontends": [
+    "platform",
+    "tenant",
+    "pc"
+  ],
+  "api_prefix": "/app/aigc_sale_video",
+  "menus": "menus/tenant.json",
+  "permissions": "permissions/tenant.json",
+  "migrations": "migrations",
+  "dependencies": [
+    {
+      "app_code": "aigc_video",
+      "name": "视频创作",
+      "required_for": "生成带货视频"
+    }
+  ],
+  "billing": {
+    "provider": "power_market",
+    "actions": [
+      "write",
+      "video"
+    ],
+    "currency": "points"
+  },
+  "frontend_entries": [
+    {
+      "terminal": "pc",
+      "entry_key": "aigc_sale_video",
+      "name": "带货视频",
+      "path": "/ai/tools/aigc_sale_video",
+      "icon": "resource/image/common/menu_generator.png",
+      "sort": 84,
+      "status": 1
+    },
+    {
+      "terminal": "tenant",
+      "entry_key": "aigc_sale_video_admin",
+      "name": "带货视频",
+      "path": "/apps/aigc_sale_video/config",
+      "icon": "el-icon-VideoCamera",
+      "sort": 84,
+      "status": 1
+    }
+  ],
+  "public_assets": [
+    {
+      "source": "assets/local/cover.webp",
+      "target": "public/resource/image/apps/aigc_sale_video/cover.webp"
+    }
+  ]
+}

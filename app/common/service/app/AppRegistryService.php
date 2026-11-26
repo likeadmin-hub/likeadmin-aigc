@@ -198,6 +198,7 @@ class AppRegistryService
             'status' => 1,
             'create_time' => $time,
         ]);
+        if ($appCode === 'aigc_sale_video') \app\common\service\app\aigc_product_video\ProductVideoPolicy::forSale(fn() => \app\common\service\app\aigc_product_video\ProductVideoBuiltins::sync(true));
         if ($appCode === 'aigc_product_video') \app\common\service\app\aigc_product_video\ProductVideoBuiltins::sync(true);
         if (in_array($appCode, StudioBuiltinCatalog::APPS, true)) StudioBuiltinTemplates::sync($appCode,true);
         self::syncApiSchema($manifest);

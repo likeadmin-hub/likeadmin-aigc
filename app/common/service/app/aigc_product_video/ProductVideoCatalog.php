@@ -24,7 +24,21 @@ final class ProductVideoCatalog
                 $m['material_modes']=$source['material_modes']??[];$m['max_reference_images']=min(15,max($m['max_reference_images'],(int)($source['max_reference_images']??0)));
                 try{$m['supports_generate_audio']=MarketVideoRuntimeService::supportsGenerateAudio($tenant,['model_id'=>$id]+($m['specs'][0]??[]));}catch(\Throwable){$m['supports_generate_audio']=false;}
             }
-        }unset($m);return $rows;
+            if (ProductVideoPolicy::app() === ProductVideoPolicy::SALE) {
+                $m['max_reference_images'] = min(10, max($m['max_reference_images'], (int)($source['max_reference_images'] ?? 0)));
+                if ($id === '') {
+                    try {
+                        $m['supports_generate_audio'] = MarketVideoRuntimeService::supportsGenerateAudio($tenant, ['model_id'=>$m['id']] + $m['specs'][0]);
+                    } catch (\Throwable) {
+                        $m['supports_generate_audio'] = false;
+                    }
+                }
+            }
+        }
+        unset($m);
+        return ProductVideoPolicy::app() === ProductVideoPolicy::SALE
+            ? array_values(array_filter($rows, static fn($model) => $model['supports_generate_audio']))
+            : $rows;
     }
     public static function model(int $tenant,array $body): array
     {

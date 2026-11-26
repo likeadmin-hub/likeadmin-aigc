@@ -24,6 +24,9 @@ final class ProductVideoWorkerCommand extends Command
                 $count = $replication
                     ? (AppRegistryService::isInstalled(ProductVideoPolicy::REPLICATION) ? ProductVideoPolicy::forReplication($tick) : 0)
                     : $tick();
+                if (!$replication && !$id && AppRegistryService::isInstalled(ProductVideoPolicy::SALE)) {
+                    $count += ProductVideoPolicy::forSale(fn() => ProductVideoWorker::tick());
+                }
             }catch(\Throwable $e){$output->writeln('Product video worker: '.get_class($e));return 1;}
             if($once){$output->writeln('processed='.$count);break;}if(!$count && $running)sleep(3);
         }while($running);return 0;

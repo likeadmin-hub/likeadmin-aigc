@@ -6,6 +6,7 @@ use InvalidArgumentException;
 final class ProductVideoPolicy
 {
     public const APP = 'aigc_product_video';
+    public const SALE = 'aigc_sale_video';
     public const REPLICATION = 'aigc_video_replication';
     public const SHOT_RANGE_ERROR = '分镜时间需要从 0 秒连续覆盖视频时长';
     public const SHOT_END_ERROR = '分镜总时长与生成时长不一致';
@@ -17,8 +18,33 @@ final class ProductVideoPolicy
     /** Scope synchronous calls from trusted app controllers, worker and callback adapters. */
     public static function forReplication(callable $operation): mixed
     {
+        return self::scoped(self::REPLICATION, $operation);
+    }
+
+    public static function forProduct(callable $operation): mixed
+    {
+        return self::scoped(self::APP, $operation);
+    }
+
+    public static function forSale(callable $operation): mixed
+    {
+        return self::scoped(self::SALE, $operation);
+    }
+
+    public static function name(): string
+    {
+        return match (self::$app) { self::SALE => '带货视频', self::REPLICATION => '视频复刻', default => '商品视频' };
+    }
+
+    public static function templateApp(): string
+    {
+        return self::$app === self::SALE ? self::SALE : self::APP;
+    }
+
+    private static function scoped(string $app, callable $operation): mixed
+    {
         $previous = self::$app;
-        self::$app = self::REPLICATION;
+        self::$app = $app;
         try { return $operation(); } finally { self::$app = $previous; }
     }
 
@@ -36,12 +62,25 @@ final class ProductVideoPolicy
     {if(str_starts_with($value,'pipeline_')||!preg_match('/^[a-zA-Z0-9_-]{16,100}$/D',$value))throw new InvalidArgumentException('请刷新后重新提交');return $value;}
     public static function body(array $body, ?string $app = null): array
     {
+        if (($app ?? self::app()) === self::SALE) {
+            if (!is_array($body['images'] ?? []) || count($body['images'] ?? []) > 10) {
+                throw new InvalidArgumentException('带货视频最多支持 10 张商品图');
+            }
+            $body['mode'] = 'normal';
+            $body['reference_mode'] = 'reference';
+            $body['template_code'] = 'ugc';
+            $body['reference_video'] = null;
+            $body['generation_assets'] = [];
+            $body['analyze_chapters'] = false;
+            $body['plan'] = null;
+            $body['audio'] = true;
+        }
         $mode=$body['mode']??'normal';if(!in_array($mode,['normal','advanced'],true))throw new InvalidArgumentException('创作模式无效');
         $images=$body['images']??[];if(!is_array($images)||count($images)>15)throw new InvalidArgumentException('商品图片最多 15 张');
         $normalSource=$body['normal_source']??'prompt';if(!in_array($normalSource,['prompt','template'],true))throw new InvalidArgumentException('视频描述来源无效');
         $referenceMode=$body['reference_mode']??'reference';if(!in_array($referenceMode,['reference','start_end'],true))throw new InvalidArgumentException('参考素材方式无效');
         $templateCode=self::text($body['template_code']??'detail',50);$template=null;foreach(ProductVideoPrompts::templates() as $item)if($item['code']===$templateCode)$template=$item;if(!$template)throw new InvalidArgumentException('创作模板不存在，请重新选择');
-        $productUrl='';if(trim((string)($body['product_url']??''))!==''){try{$productUrl=ProductVideoAmazon::target((string)$body['product_url'])['url'];}catch(InvalidArgumentException){}}
+        $productUrl='';if(trim((string)($body['product_url']??''))!==''){try{$productUrl=(($app ?? self::app()) === self::SALE ? SaleVideoWorkflow::target((string)$body['product_url']) : ProductVideoAmazon::target((string)$body['product_url']))['url'];}catch(InvalidArgumentException){}}
         $out=['product_url'=>$productUrl,'template_version'=>$template['version'],'normal_source'=>$normalSource,'reference_mode'=>$referenceMode,'market_region'=>self::text($body['market_region']??'',100),'audio'=>isset($body['audio'])?filter_var($body['audio'],FILTER_VALIDATE_BOOLEAN,FILTER_NULL_ON_FAILURE):null,
             'analyze_chapters'=>!empty($body['analyze_chapters']),'prompt_review_images'=>array_values((array)($body['prompt_review_images']??[])),'generation_assets'=>(array)($body['generation_assets']??[]),'selected_mentions'=>(array)($body['selected_mentions']??[]),
             'mode'=>$mode,'images'=>$images,'reference_video'=>$body['reference_video']??null,
@@ -123,6 +162,13 @@ final class ProductVideoPolicy
     {
         $base='以用户商品图片和已确认资料为准，保持商品轮廓、材质、颜色与标识一致，不添加未确认的价格、功效、认证、字幕或水印。';
         $base.='商品资料：'.$body['product_info'].'。表达语言：'.$body['language'].'。销售地区：'.($body['market_region']??'').'。';
+        if (self::app() === self::SALE) {
+            if ($body['normal_source'] === 'prompt' && $body['prompt'] !== '' && $body['prompt_review_images'] !== array_column($body['images'], 'uri')) {
+                throw new InvalidArgumentException('商品已变化，请检查并确认口播脚本');
+            }
+            $script = $body['normal_source'] === 'template' ? SaleVideoWorkflow::UGC : $body['prompt'];
+            return $base.SaleVideoWorkflow::DIRECTION."\n".$script;
+        }
         if (self::replicating() && !empty($body['requirements'])) {
             $base .= '创作要求：'.$body['requirements'].'。';
         }

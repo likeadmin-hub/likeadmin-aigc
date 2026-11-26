@@ -27,6 +27,9 @@ final class ProductVideoProducts
     /** Parse supported product pages only. Video-sharing pages are deliberately not a media source. */
     public static function import(int $tenant,int $user,string $url,array $params=[]): array
     {
+        if (ProductVideoPolicy::app() === ProductVideoPolicy::SALE && empty($params['async']) && empty($params['import_id'])) {
+            return ProductVideoImport::synchronous($tenant, $user, $url, $params);
+        }
         if(!empty($params['async'])||!empty($params['import_id']))return ProductVideoImport::handle($tenant,$user,$params+['url'=>$url]);
         $host=strtolower((string)parse_url(trim($url),PHP_URL_HOST));
         if(ProductVideoAmazon::productHost($host)||in_array($host,['a.co','amzn.to','amzn.eu','amzn.asia'],true))return ProductVideoImport::synchronous($tenant,$user,$url,$params);

@@ -9,10 +9,11 @@ final class ProductVideoBuiltinCatalog
 {
     private static ?string $testDirectory=null;
     private static array $memo=[];
+    private static string $memoDirectory = '';
     private static float $checkedAt=0;
     private static ?array $assets=null;
     public static function refresh(): void {self::$memo=[];self::$assets=null;self::$checkedAt=0;}
-    public static function directory(): string {return self::$testDirectory??base_path().'apps/aigc_product_video/data/inspirations';}
+    public static function directory(): string {return self::$testDirectory??base_path().'apps/'.ProductVideoPolicy::templateApp().'/data/inspirations';}
     public static function withDirectory(string $directory,callable $call): mixed
     {
         if(PHP_SAPI!=='cli')throw new InvalidArgumentException('目录仅允许在控制台测试中指定');
@@ -47,6 +48,10 @@ final class ProductVideoBuiltinCatalog
     public static function all(): array
     {
         // One filesystem scan serves all gallery URLs in a request; long workers recheck updates.
+        if (self::$memoDirectory !== self::directory()) {
+            self::refresh();
+            self::$memoDirectory = self::directory();
+        }
         if(self::$memo&&microtime(true)-self::$checkedAt<1)return reset(self::$memo);
         self::$checkedAt=microtime(true);
         $files=glob(self::directory().'/*.json')?:[];sort($files);if(count($files)>500)throw new InvalidArgumentException('内置模板目录超出数量限制');

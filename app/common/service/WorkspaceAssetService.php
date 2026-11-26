@@ -19,7 +19,7 @@ final class WorkspaceAssetService
         'music' => 'aigc_music', 'music_cover' => 'aigc_music_cover',
         'product_image' => 'aigc_product_image', 'product_suite' => 'aigc_product_suite',
         'product_multi_angle' => 'aigc_product_multi_angle', 'product_promo_video' => 'aigc_product_promo_video',
-        'store_visit' => 'aigc_store_visit', 'story_commerce' => 'aigc_story_commerce', 'product_video' => 'aigc_product_video', 'video_replication' => 'aigc_video_replication', 'motion_sync' => 'aigc_motion_sync',
+        'store_visit' => 'aigc_store_visit', 'story_commerce' => 'aigc_story_commerce', 'product_video' => 'aigc_product_video', 'sale_video' => 'aigc_sale_video', 'video_replication' => 'aigc_video_replication', 'motion_sync' => 'aigc_motion_sync',
         'animate_replace' => 'aigc_animate_replace',
         'fashion_lookbook' => 'aigc_fashion_lookbook', 'model_wear' => 'aigc_model_wear',
         'local_redraw' => 'aigc_local_redraw', 'outpaint' => 'aigc_outpaint',
@@ -38,12 +38,12 @@ final class WorkspaceAssetService
         $refs = $params['refs'] ?? [];
         if (!is_array($refs) || !$refs || count($refs) > 100) throw new InvalidArgumentException('每次请选择1至100项资产');
         foreach ($refs as $ref) {
-            if (!is_string($ref) || !preg_match('/^(?:[a-z_]+:(result|task):[1-9][0-9]{0,10}|(?:canvas|video_replication|product_video|story_commerce|store_visit):task:[1-9][0-9]{0,10}:[1-9][0-9]{0,4})$/D', $ref)) throw new InvalidArgumentException('资产标识无效');
+            if (!is_string($ref) || !preg_match('/^(?:[a-z_]+:(result|task):[1-9][0-9]{0,10}|(?:canvas|sale_video|video_replication|product_video|story_commerce|store_visit):task:[1-9][0-9]{0,10}:[1-9][0-9]{0,4})$/D', $ref)) throw new InvalidArgumentException('资产标识无效');
             [$source, $kind] = explode(':', $ref);
             if($source==='micro_video'&&!\app\common\service\app\RetiredAppService::historyAvailable())throw new InvalidArgumentException('历史作品不存在');
             if ($source !== 'upload' && !isset(self::SOURCES[$source]) && !isset(self::TASK_OUTPUTS[$source])) throw new InvalidArgumentException('资产标识无效');
             if ($source === 'canvas' && $kind === 'task' && count(explode(':', $ref)) !== 4) throw new InvalidArgumentException('资产标识无效');
-            if (in_array($source,['video_replication','product_video','story_commerce','store_visit'],true) && ($kind !== 'task' || count(explode(':',$ref)) !== 4)) throw new InvalidArgumentException('资产标识无效');
+            if (in_array($source,['sale_video','video_replication','product_video','story_commerce','store_visit'],true) && ($kind !== 'task' || count(explode(':',$ref)) !== 4)) throw new InvalidArgumentException('资产标识无效');
             if (($source === 'fitting' || isset(self::TASK_OUTPUTS[$source])) && $kind !== 'task') throw new InvalidArgumentException('资产标识无效');
             if (in_array($source, ['short_drama', 'upload', 'agent'], true) && $kind !== 'result') throw new InvalidArgumentException('资产标识无效');
         }
@@ -124,6 +124,7 @@ final class WorkspaceAssetService
         if ($source==='store_visit') return WorkspaceStoreVisitAssetService::lists($tenant,$user,$page);
         if ($source==='story_commerce') return WorkspaceStoryCommerceAssetService::lists($tenant,$user,$page);
         if ($source==='product_video') return WorkspaceProductVideoAssetService::lists($tenant,$user,$page);
+        if ($source==='sale_video') return WorkspaceSaleVideoAssetService::lists($tenant,$user,$page);
         if ($source==='video_replication') return WorkspaceVideoReplicationAssetService::lists($tenant,$user,$page);
         if ($source === 'animate_replace') return WorkspaceAnimateReplaceAssetService::lists($tenant, $user, $page);
         if (!isset(self::TASK_OUTPUTS[$source])) throw new InvalidArgumentException('资产来源无效');
@@ -214,7 +215,7 @@ final class WorkspaceAssetService
         if (!$stamp) return;
         [$source, $kind, $id] = explode(':', $ref);
         if ($source === 'canvas' && $kind === 'task') return;
-        if (in_array($source,['video_replication','product_video','story_commerce','store_visit','animate_replace'],true)) return; // Per-output library state; never delete the job or a physical video.
+        if (in_array($source,['sale_video','video_replication','product_video','story_commerce','store_visit','animate_replace'],true)) return; // Per-output library state; never delete the job or a physical video.
         // Agent-only documents/speech have no generation task to delete. Library state is authoritative.
         if ($source === 'agent') return;
         if (isset(self::TASK_OUTPUTS[$source])) {
@@ -277,6 +278,7 @@ final class WorkspaceAssetService
         if ($source === 'store_visit') return WorkspaceStoreVisitAssetService::owned($tenant,$user,$ref);
         if ($source === 'story_commerce') return WorkspaceStoryCommerceAssetService::owned($tenant,$user,$ref);
         if ($source === 'product_video') return WorkspaceProductVideoAssetService::owned($tenant,$user,$ref);
+        if ($source === 'sale_video') return WorkspaceSaleVideoAssetService::owned($tenant,$user,$ref);
         if ($source === 'video_replication') return WorkspaceVideoReplicationAssetService::owned($tenant,$user,$ref);
         if ($source === 'animate_replace') return WorkspaceAnimateReplaceAssetService::owned($tenant, $user, $kind, (int)$id);
         if (isset(self::TASK_OUTPUTS[$source])) {

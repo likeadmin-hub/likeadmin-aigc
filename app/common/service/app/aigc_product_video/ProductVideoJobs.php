@@ -27,9 +27,9 @@ final class ProductVideoJobs
         }
         $request=ProductVideoPolicy::json($row['request_json']);$snapshot=(array)($request['snapshot']??[]);
         $displayPrompt=(string)(($snapshot['mode']??'normal')==='advanced'?($snapshot['plan']['data']['video_prompt']??$snapshot['prompt']??''):($snapshot['prompt']??''));
-        if(($snapshot['mode']??'normal')==='normal'&&($snapshot['normal_source']??'prompt')==='template')foreach(ProductVideoPrompts::templates() as $template)if($template['code']===($snapshot['template_code']??''))$displayPrompt='商品展示模板：'.$template['name'];
+        if(($snapshot['mode']??'normal')==='normal'&&($snapshot['normal_source']??'prompt')==='template')foreach(ProductVideoPrompts::templates() as $template)if($template['code']===($snapshot['template_code']??''))$displayPrompt=(ProductVideoPolicy::app() === ProductVideoPolicy::SALE ? '' : '商品展示模板：').$template['name'];
         $presentation=['mode'=>$snapshot['mode']??'normal','selection'=>array_intersect_key((array)($snapshot['video_selection']??[]),array_flip(['model_id','quality','ratio','duration'])),
-            'prompt'=>$displayPrompt,
+            'prompt'=>$displayPrompt,'normal_source'=>$snapshot['normal_source']??'prompt',
             'references'=>ProductVideoService::publicBody(array_slice((array)($snapshot['images']??[]),0,3),(int)$row['tenant_id'])];
         $scriptCost = (float)($request['script_charge_points'] ?? 0);
         $error = $row['error']===''?'':($row['status']==='unknown'?'模型受理或费用待核对，请保留此任务，勿重复提交':'创作未完成，请检查素材、模型或余额后重试');
@@ -78,6 +78,9 @@ final class ProductVideoJobs
     }
     public static function prepare(int $tenant,int $user,array $p,bool $preview=false): array
     {
+        if (ProductVideoPolicy::app() === ProductVideoPolicy::SALE && !in_array($p['action'] ?? '', ['write','video'], true)) {
+            throw new InvalidArgumentException('带货视频支持口播脚本帮写和视频生成');
+        }
         $replication = ProductVideoPolicy::replicating();
         if ($replication && !in_array($p['action'] ?? '', ['plan','video'], true)) throw new InvalidArgumentException('不支持该复刻操作');
         if(($p['action']??'')==='analysis')return ProductVideoPipeline::prepare($tenant,$user,$p);
@@ -173,6 +176,9 @@ final class ProductVideoJobs
                 'market_region'=>$body['market_region']??'','audio'=>$body['audio']??null,
                 'image_slots'=>array_column($request['images'],'reference_slot_id'),'actual_duration'=>$video['duration']??null];
             if(in_array($action,['write','optimize'],true))$content['prompt']=$body['mode']==='advanced'?($body['plan']['data']['video_prompt']??$body['prompt']):$body['prompt'];
+            if (ProductVideoPolicy::app() === ProductVideoPolicy::SALE) {
+                $content['image_mentions'] = array_column($body['images'], 'mention_name');
+            }
             $request['content']=ProductVideoPolicy::encode($content);
             $request['video']=$video;$request['system']=ProductVideoPrompts::system($action);
             if ($replication) {
