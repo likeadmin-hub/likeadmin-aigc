@@ -157,8 +157,18 @@ try {
         $manualRequest = Policy::json($planRow['request_json']);
         check(Policy::json($manualRequest['content'])['duration'] === 5.5, 'Manual analysis truncated the clip duration');
         $reply['shots'][1]['end'] = 5.5;
-        $fractionScript = Worker::parse($planRow,['content'=>Policy::encode($reply)]);
-        Jobs::table()->where('id',$planJob['id'])->update(['status'=>'success','result_json'=>Policy::encode($fractionScript)]);
+        $paid = ['status'=>'failed','billing_status'=>'settled','user_charge_points'=>0.64,'error'=>Policy::SHOT_RANGE_ERROR];
+        $invalid = $reply;
+        $invalid['shots'][1]['start'] = 3;
+        Worker::write($planJob['id'], $paid + ['receipt_json'=>Policy::encode(['content'=>Policy::encode($invalid)])]);
+        check(Jobs::detail(1,1,$planJob['id'])['status'] === 'failed', 'A gap in the returned shots must still fail');
+        Worker::write($planJob['id'], ['receipt_json'=>Policy::encode(['content'=>Policy::encode($reply)])]);
+        rejects(fn() => Jobs::detail(1,2,$planJob['id']));
+        rejects(fn() => Jobs::detail(2,1,$planJob['id']));
+        $restored = Jobs::detail(1,1,$planJob['id']);
+        check($restored['status'] === 'success' && $restored['result']['duration'] === 5.5, 'Paid fractional plan was not recovered from its receipt');
+        $polled = Jobs::detail(1,1,$planJob['id']);
+        check($polled['user_charge_points'] === 0.64 && $polled['result'] === $restored['result'], 'Polling changed the recovered result or charge');
         $adopted = Projects::adopt(1,1,['job_id'=>$planJob['id'],'revision'=>$fraction['revision']])['body'];
         check(str_contains($adopted['prompt'],'2.5-5.5秒') && (int)$adopted['video_selection']['duration'] === 10, 'Applying analysis changed or rejected fractional timing');
         // Save the successful render as a template, then grant an editable copy of its original inputs.

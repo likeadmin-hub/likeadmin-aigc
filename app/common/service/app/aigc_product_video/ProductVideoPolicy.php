@@ -7,6 +7,8 @@ final class ProductVideoPolicy
 {
     public const APP = 'aigc_product_video';
     public const REPLICATION = 'aigc_video_replication';
+    public const SHOT_RANGE_ERROR = '分镜时间需要从 0 秒连续覆盖视频时长';
+    public const SHOT_END_ERROR = '分镜总时长与生成时长不一致';
     private static string $app = self::APP;
 
     public static function app(): string { return self::$app; }
@@ -87,12 +89,12 @@ final class ProductVideoPolicy
         foreach($shots as $index=>$shot){
             if(!is_array($shot)||!is_numeric($shot['start']??null)||!is_numeric($shot['end']??null))throw new InvalidArgumentException('分镜时间格式不正确');
             $start=(float)$shot['start'];$next=(float)$shot['end'];
-            if(!is_finite($start)||!is_finite($next)||abs($start-$end)>0.01||$next<=$start||$next>$duration+0.01)throw new InvalidArgumentException('分镜时间需要从 0 秒连续覆盖视频时长');
+            if(!is_finite($start)||!is_finite($next)||abs($start-$end)>0.01||$next<=$start||$next>$duration+0.01)throw new InvalidArgumentException(self::SHOT_RANGE_ERROR);
             if(array_key_exists('action',$shot)&&($context['audio']??null)===false)$shot['sound']='无声';
             $description=ProductVideoAnalysis::shotDescription($shot);if($description==='')throw new InvalidArgumentException('请补充分镜画面');
             $out[]=['id'=>'shot_'.($index+1),'start'=>$start,'end'=>$next,'description'=>$description];$end=$next;
         }
-        if(abs($end-$duration)>0.01)throw new InvalidArgumentException('分镜总时长与生成时长不一致');
+        if(abs($end-$duration)>0.01)throw new InvalidArgumentException(self::SHOT_END_ERROR);
         $points=[];
         foreach(array_slice((array)($plan['selling_points']??[]),0,12) as $index=>$point){
             if(!is_array($point))continue;$label=self::text($point['label']??'',300);if($label==='')continue;

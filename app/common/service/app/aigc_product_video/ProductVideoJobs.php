@@ -12,6 +12,12 @@ final class ProductVideoJobs
     public static function table(){return ProductVideoService::table('job');}
     public static function owned(int $tenant,int $user,int $id,bool $admin=false): array
     {$q=self::table()->where(['id'=>$id,'delete_time'=>0]);if(!$admin||$tenant>0)$q->where('tenant_id',$tenant);if(!$admin)$q->where('user_id',$user);$row=$q->find();if(!$row)throw new InvalidArgumentException('创作任务不存在或无权访问');return $row;}
+    public static function detail(int $tenant, int $user, int $id): array
+    {
+        $row = self::owned($tenant, $user, $id);
+        if (ProductVideoPolicy::replicating()) $row = VideoReplicationWorkflow::restoreSettledPlan($row);
+        return self::dto($row);
+    }
     public static function dto(array $row): array
     {
         $result=ProductVideoService::publicBody(ProductVideoPolicy::json($row['result_json']),(int)$row['tenant_id']);
@@ -26,9 +32,11 @@ final class ProductVideoJobs
             'prompt'=>$displayPrompt,
             'references'=>ProductVideoService::publicBody(array_slice((array)($snapshot['images']??[]),0,3),(int)$row['tenant_id'])];
         $scriptCost = (float)($request['script_charge_points'] ?? 0);
+        $error = $row['error']===''?'':($row['status']==='unknown'?'模型受理或费用待核对，请保留此任务，勿重复提交':'创作未完成，请检查素材、模型或余额后重试');
+        if (ProductVideoPolicy::replicating() && VideoReplicationWorkflow::failedTiming($row)) $error = '模型返回的分镜时间与所选参考片段不一致，脚本未能回填。';
         return ['id'=>(int)$row['id'],'presentation'=>$presentation,'project_id'=>(int)$row['project_id'],'project_revision'=>(int)$row['project_revision'],'action'=>$row['action'],
             'status'=>$row['status'],'result'=>$result,
-            'error'=>$row['error']===''?'':($row['status']==='unknown'?'模型受理或费用待核对，请保留此任务，勿重复提交':'创作未完成，请检查素材、模型或余额后重试'),
+            'error'=>$error,
             'estimated_user_charge_points'=>isset($request['quote']['user_charge_points'])?(float)$request['quote']['user_charge_points']:null,
             'user_charge_points'=>(float)$row['user_charge_points']+$scriptCost,'billing_status'=>$row['billing_status'],
             'create_time'=>(int)$row['create_time'],'update_time'=>(int)$row['update_time']];

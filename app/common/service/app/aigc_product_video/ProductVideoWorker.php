@@ -18,10 +18,16 @@ final class ProductVideoWorker
         if(in_array($row['status'],['queued','running','unknown'],true))ProductVideoJobs::table()->where(['id'=>$id,'consumption_id'=>$consumption['id'],'status'=>$row['status']])->update(['next_run_at'=>time(),'update_time'=>time()]);
         return true;
     }
+    public static function readyJobs(int $id)
+    {
+        $jobs = ProductVideoJobs::table()->whereIn('status', ['queued','running','unknown'])
+            ->where('delete_time', 0)->where('next_run_at', '<=', time())->where('lease_until', '<', time());
+        if ($id) $jobs->where('id', $id);
+        return $jobs->order('id');
+    }
     public static function tick(int $id=0): int
     {
-        $q=ProductVideoJobs::table()->whereIn('status',['queued','running','unknown'])->where('delete_time',0)->where('next_run_at','<=',time())->where('lease_until','<',time());if($id)$q->where('id',$id);
-        foreach($q->order('id')->limit(10)->select()->toArray() as $row){
+        foreach(self::readyJobs($id)->limit(10)->select()->toArray() as $row){
             $lock=fopen(runtime_path().substr(ProductVideoPolicy::app(),5).'_'.$row['id'].'.lock','c');if(!$lock||!flock($lock,LOCK_EX|LOCK_NB)){if($lock)fclose($lock);continue;}
             $lease=bin2hex(random_bytes(16));
             try{if(!ProductVideoJobs::table()->where('id',$row['id'])->where('lease_until','<',time())->update(['lease_until'=>time()+600,'lease_token'=>$lease]))continue;
