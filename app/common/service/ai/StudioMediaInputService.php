@@ -305,7 +305,7 @@ final class StudioMediaInputService
     {
         if (!$row || (int)($row['tenant_id'] ?? 0) !== $tenant || (int)($row['source_id'] ?? 0) !== $user
             || (int)($row['source'] ?? -1) !== FileEnum::SOURCE_USER || (int)($row['type'] ?? 0) !== $type
-            || (string)($row['uri'] ?? '') !== $uri || !empty($row['delete_time'])) throw new RuntimeException('素材不存在或不属于当前用户');
+            || (string)($row['uri'] ?? '') !== $uri || !empty($row['delete_time'])) throw new StudioMediaOwnershipException('素材不存在或不属于当前用户');
     }
 
     private static function storage(array $row, int $tenant): array

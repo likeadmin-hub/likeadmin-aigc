@@ -5,6 +5,7 @@ namespace app\common\service\app\aigc_product_video;
 use app\common\model\app\AppCase;
 use app\common\service\app\AppCaseService;
 use app\common\service\ai\StudioMediaInputService;
+use app\common\service\ai\StudioMediaOwnershipException;
 use app\common\service\SubmitLockService;
 use InvalidArgumentException;
 use think\facade\Db;
@@ -93,11 +94,30 @@ final class ProductVideoTemplates
         return $row;
     }
 
+    /** Saved templates can contain administrator replacements alongside the job's original images. */
+    public static function jobImages(int $tenant, int $user, array $images, bool $allowAdminReplacements = false): array
+    {
+        $verified = [];
+        foreach (array_values($images) as $index => $image) {
+            try {
+                $verified[] = StudioMediaInputService::validateImages($tenant, $user, [$image], 1)[0];
+            } catch (StudioMediaOwnershipException $e) {
+                $position = $index + 1;
+                if (!$allowAdminReplacements) {
+                    throw new InvalidArgumentException("第 {$position} 张商品图的上传记录无效，请恢复原素材或使用有效图片新建模板", 0, $e);
+                }
+                $verified[] = ProductVideoAdminMedia::verifyStored($tenant, $image, 10,
+                    "第 {$position} 张商品图的上传记录无效，请在模板中替换该图后重试");
+            }
+        }
+        return $verified;
+    }
+
     public static function fromJob(int $scope,int $id,array $params): array
     {
         $job=ProductVideoJobs::owned($scope,0,$id,true);
         if($job['action']!=='video'||!in_array($job['status'],['success','partial'],true))throw new InvalidArgumentException('只有已完成的视频作品可以设为灵感模板');
-        $body=self::configuration($job);$body['images']=StudioMediaInputService::validateImages((int)$job['tenant_id'],(int)$job['user_id'],$body['images'],15);
+        $body=self::configuration($job);$body['images']=self::jobImages((int)$job['tenant_id'],(int)$job['user_id'],$body['images']);
         $media=ProductVideoPolicy::json($job['result_json'])['videos'][0]??[];
         $uri=(string)($media['video_uri']??$media['uri']??'');
         if($uri===''||empty($media['storage_engine']))throw new InvalidArgumentException('作品尚未保存到系统存储，暂不能设为模板');

@@ -81,6 +81,19 @@ try{C::withDirectory($dir,static function()use($dir){
  yes($manual['is_builtin']&&$manual['tenant_id']===0,'Platform can manually author a portable builtin without a source user task');
  $manualCopy=T::remix($target,$user,$manual['id']);yes($manualCopy['body']['images'][0]['uri']===$uri,'Manually authored platform builtin reuses the approved public OSS object across tenants');
 
+ $replacementUri=str_replace('.png','_replacement.png',$uri);
+ $receipt=['tenant_id'=>1,'source'=>0,'source_id'=>1,'type'=>10,'name'=>'Admin replacement','uri'=>$replacementUri,'storage_scope'=>$storage['scope'],'storage_engine'=>$engine,'storage_domain'=>$domain,'create_time'=>time(),'update_time'=>time()];
+ $receiptId=Db::name('tenant_file')->insertGetId($receipt);
+ T::save(1,['id'=>$advancedSource['id'],'configuration'=>['images'=>[['file_id'=>$receiptId]]]]);
+ $publishReplacement=fn()=>B::publish($advancedSource['id'],['confirm_public_media'=>true,'expected_version'=>2],1);
+ Db::name('tenant_file')->where('id',$receiptId)->update(['delete_time'=>time()]);
+ Db::name('tenant_file')->insert(array_replace($receipt,['source'=>1,'source_id'=>$user]));
+ Db::name('tenant_file')->insert(array_replace($receipt,['tenant_id'=>$target]));
+ try{$publishReplacement();throw new LogicException('Unavailable receipt accepted');}
+ catch(InvalidArgumentException $e){yes(str_contains($e->getMessage(),'第 1 张商品图'),'Missing receipt identifies the input despite foreign receipts');}
+ Db::name('tenant_file')->where('id',$receiptId)->update(['delete_time'=>null]);
+ $replaced=$publishReplacement();
+ yes($replaced['builtin_version']===3&&$replaced['configuration']['images'][0]['uri']===$replacementUri,'Restored tenant admin replacement publishes on the original task template');
 
  });echo "PASS $checks platform builtin publication, cross-tenant remix, source updates and shared OSS protection checks\n";
 }finally{Db::rollback();foreach(glob($dir.'/*') as $f)unlink($f);rmdir($dir);}
